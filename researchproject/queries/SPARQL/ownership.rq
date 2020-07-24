@@ -1,0 +1,41 @@
+# Listed companies on the NASDAQ, connected by joint ownership by a company or person
+
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wds: <http://www.wikidata.org/entity/statement/>
+PREFIX wdv: <http://www.wikidata.org/value/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX p: <http://www.wikidata.org/prop/>
+PREFIX ps: <http://www.wikidata.org/prop/statement/>
+PREFIX pq: <http://www.wikidata.org/prop/qualifier/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX bd: <http://www.bigdata.com/rdf#>
+
+SELECT DISTINCT ?parentLabel ?tickerLabel ?parent2Label ?ticker2Label ?entityLabel
+WHERE {
+  #Listed by nasdaq
+  ?parent wdt:P414 wd:Q82059.
+
+  # Get tickers
+  ?parent p:P414 [
+    pq:P249 ?ticker;
+    ps:P414 wd:Q82059
+  ].
+
+  ?parent (wdt:P127) ?entity.
+  ?parent2 (wdt:P127) ?entity.
+
+  #Also listed by nasdaq
+  ?parent2 wdt:P414 wd:Q82059.
+
+  FILTER(?parent != ?parent2)
+
+  # Get tickers
+  ?parent2 p:P414 [
+    pq:P249 ?ticker2;
+    ps:P414 wd:Q82059
+  ].
+
+
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE], en". }
+}

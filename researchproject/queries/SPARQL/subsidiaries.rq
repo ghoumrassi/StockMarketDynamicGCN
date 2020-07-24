@@ -1,0 +1,59 @@
+# All subsidiaries of companies listed on the NASDAQ
+
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wds: <http://www.wikidata.org/entity/statement/>
+PREFIX wdv: <http://www.wikidata.org/value/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX p: <http://www.wikidata.org/prop/>
+PREFIX ps: <http://www.wikidata.org/prop/statement/>
+PREFIX pq: <http://www.wikidata.org/prop/qualifier/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX bd: <http://www.bigdata.com/rdf#>
+
+SELECT DISTINCT ?subsidiaryLabel ?parentLabel ?ticker ?industryLabel ?startdateLabel ?enddateLabel ?altLabel
+WHERE {
+
+  ?item wdt:P414 wd:Q82059. # Listed by LSE
+  # Iteratively, find subsidiaries [Currently, intermediaries may be people...]
+  ?item (wdt:P355|wdt:P1830)* ?subsidiary.
+
+  # Iteratively, find parent
+  # ?subsidiary (wdt:P749 | wdt:P127)* ?parent.
+  ?subsidiary wdt:P749* ?parent.
+
+  # Not a person
+  MINUS {
+    ?parent wdt:P31 wd:Q5.
+  }
+
+  #Listed by nasdaq
+  ?parent wdt:P414 wd:Q82059.
+
+  # Get tickers
+  ?parent p:P414 [
+    pq:P249 ?ticker;
+    ps:P414 wd:Q82059
+  ].
+
+#   # Find it's industries, if available
+  OPTIONAL {
+    ?subsidiary wdt:P452 ?industry
+  }.
+#
+#   # Find it's founding date, if available
+  OPTIONAL {
+    ?subsidiary wdt:P571 ?startdate
+  }.
+#
+#   # Find it's closure date, if available
+  OPTIONAL {
+    ?subsidiary (wdt:P582| wdt:P576|wdt:P2669) ?enddate
+  }.
+#   # Find aliases
+  OPTIONAL {
+    ?subsidiary (skos:altLabel|rdfs:label) ?altLabel .
+    FILTER (lang(?altLabel) = "en")
+  }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE], en". }
+}
