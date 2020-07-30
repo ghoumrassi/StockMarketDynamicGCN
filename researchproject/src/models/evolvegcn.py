@@ -7,20 +7,17 @@ from torch.nn.parameter import Parameter
 import torch.nn as nn
 import math
 
-import utils as u
-
-"""
-Implementation of the EvolveGCN model for learning on dynamically evolving graphs.
-
-Original paper: https://arxiv.org/abs/1902.10191
-Original implementation: https://github.com/IBM/EvolveGCN
-"""
-
-
+from src.models.utils import Namespace
 class EvolveGCN(nn.Module):
+    """
+    Implementation of the EvolveGCN model for learning on dynamically evolving graphs.
+
+    Original paper: https://arxiv.org/abs/1902.10191
+    Original implementation: https://github.com/IBM/EvolveGCN
+    """
     def __init__(self, args, activation, skipfeats=False):
         super().__init__()
-        GRCU_args = u.Namespace({})
+        GRCU_args = Namespace({})
 
         features = [
             args.node_feat_dim,
@@ -37,7 +34,7 @@ class EvolveGCN(nn.Module):
 
         # Makes GRCU_layers: a list of the 3 GRCU layers for each GCN cell
         for i in range(1, len(features)):
-            GRCU_args = u.Namespace({
+            GRCU_args = Namespace({
                 'in_feats': features[i - 1],
                 'out_feats': features[i],
                 'activation': activation
@@ -47,14 +44,13 @@ class EvolveGCN(nn.Module):
             self.GRCU_layers.append(grcu_i)
             self._parameters.extend(list(grcu_i.parameters()))
 
-    """
-    Inputs - 
-        A_list:             list of Adj matrices at each timestep t
-        X_list:             list of feature matrices at each timestep t
-        node_mask_list:     ???
-    """
-
     def forward(self, A_list, X_list, node_mask_list):
+        """
+        Inputs -
+            A_list:             list of Adj matrices at each timestep t
+            X_list:             list of feature matrices at each timestep t
+            node_mask_list:     ???
+        """
         node_features = X_list[-1]
 
         for unit in self.GRCU_layers:
@@ -69,16 +65,12 @@ class EvolveGCN(nn.Module):
         return self._parameters
 
 
-"""
-Underlying Graph Recurrent Convolution Units for the EvolveGCN layer.
-"""
-
-
 class GRCU(nn.Module):
+    """ Underlying Graph Recurrent Convolution Units for the EvolveGCN layer. """
     def __init__(self, args):
         super().__init__()
         self.args = args
-        cell_args = u.Namespace({})
+        cell_args = Namespace({})
         cell_args.rows = args.in_feats
         cell_args.cols = args.out_feats
 
@@ -117,13 +109,13 @@ class GRCU(nn.Module):
         return out_seq
 
 
-"""
-GRU cell, with the following adjustments:
-    1. Input is a matrix, not a vector
-    2. Hidden state H is adjusted such that it's feature dimensionality is the same as the input
-       [i.e. X.size(1) = H.size(1)]
-"""
 class Mat_GRU_cell(nn.Module):
+    """
+    GRU cell, with the following adjustments:
+        1. Input is a matrix, not a vector
+        2. Hidden state H is adjusted such that it's feature dimensionality is the same as the input
+           [i.e. X.size(1) = H.size(1)]
+    """
     def __init__(self, args):
         super().__init__()
         self.args = args
@@ -141,11 +133,12 @@ class Mat_GRU_cell(nn.Module):
 
         self.choose_topk = TopK(features=args.rows, k=args.cols)
 
-    """
-    Takes the input feature matrix and the hidden state of the layer at the last timestep
-    and returns the hidden state at this timestep.
-    """
+
     def forward(self, X, prev_H, mask):
+        """
+        Takes the input feature matrix and the hidden state of the layer at the last timestep
+        and returns the hidden state at this timestep.
+        """
         H_topk = self.choose_topk(prev_H, mask)
 
         update = self.update(H_topk, X)
@@ -159,10 +152,8 @@ class Mat_GRU_cell(nn.Module):
         return H
 
 
-"""
-Gate for GRU cell.
-"""
 class Mat_GRU_gate(nn.Module):
+    """ Gate for GRU cell. """
     def __init__(self, rows, cols, activation):
         super().__init__()
         self.activation = activation
@@ -188,13 +179,11 @@ class Mat_GRU_gate(nn.Module):
         return out
 
 
-"""
-Creates a lower dimensional representation of the input feature matrix, with only k-features.
-This is necessary to preserve the input and output features are equal in length for the EGRC unit.
-"""
-
-
 class TopK(nn.Module):
+    """
+    Creates a lower dimensional representation of the input feature matrix, with only k-features.
+    This is necessary to preserve the input and output features are equal in length for the EGRC unit.
+    """
     def __init__(self, features, k):
         super().__init__()
         self.scorer = Parameter(torch.Tensor(features, 1))
@@ -216,7 +205,7 @@ class TopK(nn.Module):
         # Handles case where many values are nan
         topk_indices = topk_indices[values > -float("Inf")]
         if topk_indices.size(0) < self.k:
-            topk_indices = u.pad_with_lst_val(topk_indices, self.k)
+            topk_indices = pad_with_lst_val(topk_indices, self.k)
 
         # Handles case where input tensor is sparse
         if isinstance(embeddings, torch.sparse.FloatTensor) or \
