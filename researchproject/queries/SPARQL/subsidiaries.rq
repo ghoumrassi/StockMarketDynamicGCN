@@ -11,7 +11,7 @@ PREFIX pq: <http://www.wikidata.org/prop/qualifier/>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX bd: <http://www.bigdata.com/rdf#>
 
-SELECT DISTINCT ?subsidiaryLabel ?parentLabel ?ticker ?industryLabel ?startdateLabel ?enddateLabel ?altLabel
+SELECT DISTINCT ?subsidiaryLabel ?parentLabel ?ticker ?exchangeLabel ?industryLabel ?startdateLabel ?enddateLabel ?altLabel
 WHERE {
 
   ?item wdt:P414 wd:Q82059. # Listed by LSE
@@ -33,7 +33,7 @@ WHERE {
   # Get tickers
   ?parent p:P414 [
     pq:P249 ?ticker;
-    ps:P414 wd:Q82059
+    ps:P414 ?exchange
   ].
 
 #   # Find it's industries, if available

@@ -63,6 +63,9 @@ class CompanyStockGraphDataset(Dataset):
         X = torch.zeros((self.window_size, len(self.ticker_idx_map), len(self.features)+1), device=self.device)
         # y = torch.zeros((self.predict_periods, len(self.ticker_idx_map), 3), device=self.device)
         y = torch.zeros((self.predict_periods, len(self.ticker_idx_map)), device=self.device)
+        #TODO: A may be incorrectly specified. Currently: s x s, Potential real solution: t x s x s
+        #      Remember: for early indices, there won't be any history, how does this effect the
+        #                matrix representation?
         A = torch.zeros((len(self.ticker_idx_map), len(self.ticker_idx_map)), device=self.device)
         k = torch.tensor(len(self.ticker_idx_map))
 

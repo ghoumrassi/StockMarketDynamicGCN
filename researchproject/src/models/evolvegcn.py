@@ -91,6 +91,7 @@ class GRCU(nn.Module):
     def forward(self, A_list, emb_list, node_mask_list):
         GCN_weights = self.GCN_init_weights
         out_seq = []
+        #TODO: Problem somewhere here with X and A being incorrectly passed forward to Mat_GRU_cell
         for t, Ahat in enumerate(A_list):
             node_embedding = emb_list[t]
             GCN_weights = self.evolve_weights(GCN_weights, node_embedding, node_mask_list[t])
