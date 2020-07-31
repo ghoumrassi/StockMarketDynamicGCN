@@ -45,8 +45,13 @@ NASDAQ_TICKERS = Path(resource_filename(__name__, '../data/external/nasdaq/nasda
 
 # Mapping file made using "fuzzy_match.py" that maps NYT company names to their "true" variant.
 COMPANY_NAME_MAPPING_FILE = Path(resource_filename(__name__, '../data/processed/nyt_to_nasdaq_mapping_current.csv'))
-COMPANY_NAME_MAPPING = {x[1]['name']: x[1]['Security Name'] for x in pd.read_csv(COMPANY_NAME_MAPPING_FILE).iterrows()}
-
+try:
+    COMPANY_NAME_MAPPING = {#
+        x[1]['name']: x[1]['Security Name'] for x in pd.read_csv(COMPANY_NAME_MAPPING_FILE).iterrows()
+    }
+except FileNotFoundError:
+    print("Warning: COMPANY_NAME_MAPPING was not found. \
+          The program will break if data manipulation is being performed.")
 # Adjacency matrix file made using format_nytimes.py
 NYT_ADJ_MATRIX = Path(resource_filename(__name__, '../data/processed/nyt_adj.npy'))
 
