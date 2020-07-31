@@ -214,6 +214,7 @@ class TopK(nn.Module):
             embeddings = embeddings.to_dense()
 
         # out = [X_t * tanh(y_t)]_i_t
-        out = embeddings[topk_indices] * nn.Tanh(scores[topk_indices].view(-1, 1))
+        tanh = nn.Tanh()
+        out = embeddings[topk_indices] * tanh(scores[topk_indices].view(-1, 1))
 
         return out.t()

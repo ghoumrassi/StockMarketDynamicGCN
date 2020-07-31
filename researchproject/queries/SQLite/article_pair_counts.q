@@ -1,12 +1,12 @@
 -- noinspection SqlNoDataSourceInspectionForFile
 
--- Returns the count of each (ticker,ticker) pair for a given date
+-- Returns the count of each (date, ticker,ticker) combination
 
 SELECT
+    summaries.date AS "date",
     subsa.ticker AS "a",
     subsb.ticker AS "b",
     COUNT(subsa.ticker) AS "count"
-
 FROM summaries
 
 LEFT JOIN companymapper AS mappera
@@ -29,5 +29,8 @@ WHERE
     -- Added without testing, if query breaks - this is #1 suspect.
     subsa.ticker != subsb.ticker
         AND
-    summaries.Date == ?
-GROUP BY subsa.ticker, subsb.ticker
+    summaries.date >= ?
+        AND
+    summaries.date < ?
+
+GROUP BY summaries.date, subsa.ticker, subsb.ticker

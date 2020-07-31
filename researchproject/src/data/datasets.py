@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import Dataset
 import pickle
 import datetime as dt
-import time
+import numpy as np
 
 
 from src import *
@@ -49,6 +49,7 @@ class CompanyStockGraphDataset(Dataset):
         self.c.execute(self.distinct_dates_query, (self.start_date, self.end_date))
         self.idx_date_map = {i: str(int(date[0])) for i, date in enumerate(self.c.fetchall())}
         self.date_idx_map = {str(int(date)): i for i, date in self.idx_date_map.items()}
+        self.date_array = np.array([int(date) for date in self.date_idx_map.keys()])
 
         with open((SQL_QUERIES / 'get_distinct_tickers.q'), 'r') as f:
             self.distinct_tickers_query = f.read()
@@ -60,31 +61,38 @@ class CompanyStockGraphDataset(Dataset):
         return len(self.idx_date_map) - (self.window_size + self.predict_periods)
 
     def __getitem__(self, idx):
-        X = torch.zeros((self.window_size, len(self.ticker_idx_map), len(self.features)+1), device=self.device)
-        # y = torch.zeros((self.predict_periods, len(self.ticker_idx_map), 3), device=self.device)
+        X = torch.zeros(
+            (self.window_size, len(self.ticker_idx_map), len(self.features)+1),
+            device=self.device)
         y = torch.zeros((self.predict_periods, len(self.ticker_idx_map)), device=self.device)
-        #TODO: A may be incorrectly specified. Currently: s x s, Potential real solution: t x s x s
-        #      Remember: for early indices, there won't be any history, how does this effect the
-        #                matrix representation?
-        A = torch.zeros((len(self.ticker_idx_map), len(self.ticker_idx_map)), device=self.device)
-        k = torch.tensor(len(self.ticker_idx_map))
+        A = torch.zeros(
+            (self.window_size, len(self.ticker_idx_map), len(self.ticker_idx_map)),
+            device=self.device
+        )
+        k = torch.zeros((self.window_size, ), device=self.device)
 
         start_date = self.idx_date_map[idx]
         current_date = self.idx_date_map[idx + self.window_size]
         end_date = self.idx_date_map[idx + (self.window_size + self.predict_periods)]
 
         # Get A
-        self.c.execute(self.pair_count_query, (int(current_date),))
+        self.c.execute(self.pair_count_query, (start_date, current_date))
         results = self.c.fetchall()
-        for a, b, count in results:
-            #TODO: Extremely messy solution: please fix.
+        for date, a, b, count in results:
+            # TODO: Extremely messy solution: please fix.
             try:
-                a_i = self.ticker_idx_map[a]
-                b_i = self.ticker_idx_map[b]
+                a_j = self.ticker_idx_map[a]
+                b_j = self.ticker_idx_map[b]
             except KeyError:
+                # print("Ticker doesn't exist.")
                 continue
-            A[a_i, b_i] += count
-            A[b_i, a_i] += count
+            try:
+                d_i = self.date_idx_map[str(int(date))] - idx
+            except KeyError:
+                new_date = self.date_array[self.date_array < date].max()
+                d_i = self.date_idx_map[str(int(new_date))] - idx
+            A[d_i, a_j, b_j] += count
+            A[d_i, b_j, a_j] += count
 
         # Get X
         self.c.execute(self.ticker_hist_query, (start_date, current_date))
@@ -114,6 +122,8 @@ class CompanyStockGraphDataset(Dataset):
             else:
                 # oh_vector[1] = 1
                 y[date_idx, ticker_idx] = 1
+        # Get k
+        k = k.fill_(len(self.ticker_idx_map))
 
         return A, X, k, y
 
