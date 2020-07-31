@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
     features = ['adjVolume']
 
-    optimizer = optim.SGD(model.parameters(), lr=0.001)
+    optimizer = optim.SGD(model.params, lr=0.001)
     epochs = 10
     batch_size = None
     criterion = nn.CrossEntropyLoss()

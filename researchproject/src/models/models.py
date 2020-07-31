@@ -14,10 +14,10 @@ class EvolveGCNDenseModel(nn.Module):
         self.lstm = nn.LSTM(input_size=args.layer_2_dim, hidden_size=args.layer_2_dim)
         self.fc = nn.Linear(in_features=args.layer_2_dim, out_features=3)
         self.dropout = nn.Dropout(args.dropout)
-
-        self._parameters = nn.ParameterList().cuda(device=self.device)
-        self._parameters.extend(list(self.egcn.parameters()))
-        self._parameters.extend(list(self.lstm.parameters()))
+        self.params = nn.ParameterList(list(self.egcn.parameters()) + list(self.lstm.parameters()))
+        # self._parameters = nn.ParameterList().cuda(device=self.device)
+        # self._parameters.extend(list(self.egcn.parameters()))
+        # self._parameters.extend(list(self.lstm.parameters()))
 
     def forward(self, a, x, n_mask):
         egcn_out = self.egcn(a, x, n_mask)
