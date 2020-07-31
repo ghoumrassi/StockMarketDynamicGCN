@@ -1,1 +1,1 @@
-from researchproject.src.data import *
+from src.data import *

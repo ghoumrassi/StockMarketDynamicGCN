@@ -5,8 +5,9 @@ from torch.utils.data import DataLoader
 
 from tqdm import tqdm
 
-from src.models.models import ModelA_EvolveGCN_w_Dense
+from src.models.models import EvolveGCNDenseModel
 from src.data.datasets import CompanyStockGraphDataset
+
 
 class Args:
     def __init__(self):
@@ -24,7 +25,7 @@ if __name__ == "__main__":
     predict_periods = 3
     args = Args()
 
-    model = ModelA_EvolveGCN_w_Dense(args, activation=torch.relu, skipfeats=False, predict_periods=3)
+    model = EvolveGCNDenseModel(args, activation=torch.relu, skipfeats=False, predict_periods=3)
     if device == "cuda:0":
         model.cuda(device=device)
     # model.double()
@@ -58,7 +59,7 @@ if __name__ == "__main__":
 
             loss = criterion(y_pred.view(1, *y_pred.shape).permute(0, 3, 1, 2),
                              y_train.view(1, *y_train.shape).long())
-            training_loss +=  loss.item()
+            training_loss += loss.item()
             mean_loss = training_loss/(i+1)
 
             loss.backward()
@@ -70,7 +71,7 @@ if __name__ == "__main__":
         for i, (A_val, X_val, mask_val, y_val) in pbar:
             y_pred = model(A_val, X_val, mask_val)
             loss = criterion(y_pred, y_val)
-            val_loss += loss.item()#
+            val_loss += loss.item()
             mean_loss = val_loss / (i + 1)
             pbar.set_description(f"Mean loss: {round(mean_loss, 4)}")
         pbar.close()

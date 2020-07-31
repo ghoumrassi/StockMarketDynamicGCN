@@ -8,6 +8,8 @@ import torch.nn as nn
 import math
 
 from src.models.utils import Namespace
+
+
 class EvolveGCN(nn.Module):
     """
     Implementation of the EvolveGCN model for learning on dynamically evolving graphs.
@@ -15,6 +17,7 @@ class EvolveGCN(nn.Module):
     Original paper: https://arxiv.org/abs/1902.10191
     Original implementation: https://github.com/IBM/EvolveGCN
     """
+
     def __init__(self, args, activation, skipfeats=False):
         super().__init__()
         GRCU_args = Namespace({})
@@ -67,6 +70,7 @@ class EvolveGCN(nn.Module):
 
 class GRCU(nn.Module):
     """ Underlying Graph Recurrent Convolution Units for the EvolveGCN layer. """
+
     def __init__(self, args):
         super().__init__()
         self.args = args
@@ -74,7 +78,7 @@ class GRCU(nn.Module):
         cell_args.rows = args.in_feats
         cell_args.cols = args.out_feats
 
-        self.evolve_weights = Mat_GRU_cell(cell_args)
+        self.evolve_weights = MatGRUCell(cell_args)
 
         self.activation = self.args.activation
         self.GCN_init_weights = Parameter(torch.Tensor(
@@ -91,7 +95,7 @@ class GRCU(nn.Module):
     def forward(self, A_list, emb_list, node_mask_list):
         GCN_weights = self.GCN_init_weights
         out_seq = []
-        #TODO: Problem somewhere here with X and A being incorrectly passed forward to Mat_GRU_cell
+        # TODO: Problem somewhere here with X and A being incorrectly passed forward to Mat_GRU_cell
         for t, Ahat in enumerate(A_list):
             node_embedding = emb_list[t]
             GCN_weights = self.evolve_weights(GCN_weights, node_embedding, node_mask_list[t])
@@ -110,30 +114,30 @@ class GRCU(nn.Module):
         return out_seq
 
 
-class Mat_GRU_cell(nn.Module):
+class MatGRUCell(nn.Module):
     """
     GRU cell, with the following adjustments:
         1. Input is a matrix, not a vector
         2. Hidden state H is adjusted such that it's feature dimensionality is the same as the input
            [i.e. X.size(1) = H.size(1)]
     """
+
     def __init__(self, args):
         super().__init__()
         self.args = args
-        self.update = Mat_GRU_gate(args.rows,
-                                   args.cols,
-                                   torch.sigmoid)
+        self.update = MatGRUGate(args.rows,
+                                 args.cols,
+                                 torch.sigmoid)
 
-        self.reset = Mat_GRU_gate(args.rows,
+        self.reset = MatGRUGate(args.rows,
+                                args.cols,
+                                torch.sigmoid)
+
+        self.h_tilda = MatGRUGate(args.rows,
                                   args.cols,
-                                  torch.sigmoid)
-
-        self.h_tilda = Mat_GRU_gate(args.rows,
-                                    args.cols,
-                                    nn.Tanh())
+                                  nn.Tanh())
 
         self.choose_topk = TopK(features=args.rows, k=args.cols)
-
 
     def forward(self, X, prev_H, mask):
         """
@@ -153,8 +157,9 @@ class Mat_GRU_cell(nn.Module):
         return H
 
 
-class Mat_GRU_gate(nn.Module):
+class MatGRUGate(nn.Module):
     """ Gate for GRU cell. """
+
     def __init__(self, rows, cols, activation):
         super().__init__()
         self.activation = activation
@@ -173,11 +178,16 @@ class Mat_GRU_gate(nn.Module):
 
     def forward(self, x, h):
         out = self.activation(
-            self.W.matmul(x) + \
-            self.U.matmul(h) + \
+            self.W.matmul(x) +
+            self.U.matmul(h) +
             self.b
         )
         return out
+
+
+def reset_params(p):
+    std = 1. / math.sqrt(p.size(0))
+    p.data.uniform_(-std, std)
 
 
 class TopK(nn.Module):
@@ -185,16 +195,13 @@ class TopK(nn.Module):
     Creates a lower dimensional representation of the input feature matrix, with only k-features.
     This is necessary to preserve the input and output features are equal in length for the EGRC unit.
     """
+
     def __init__(self, features, k):
         super().__init__()
         self.scorer = Parameter(torch.Tensor(features, 1))
-        self.reset_params(self.scorer)
+        reset_params(self.scorer)
 
         self.k = k
-
-    def reset_params(self, p):
-        std = 1. / math.sqrt(p.size(0))
-        p.data.uniform_(-std, std)
 
     def forward(self, embeddings, mask):
         # y_t = (X_t * p) / ||p||

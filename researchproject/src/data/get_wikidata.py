@@ -5,6 +5,7 @@ import time
 from researchproject.src import WD_QUERIES, WD_OUTPUT
 from ftfy import fix_text
 
+
 def get_query_data(query):
     wd = "https://query.wikidata.org/sparql"
     r = requests.get(wd, params={'format': 'json', 'query': query})

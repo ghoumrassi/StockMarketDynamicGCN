@@ -51,7 +51,7 @@ def main(download=False):
     populate_dates(conn)
     populate_mapper(conn)
     populate_subsidiaries(conn)
-    populate_ticker(conn) # This one takes a looong time
+    populate_ticker(conn)  # This one takes a looong time
 
     print("DONE!")
 

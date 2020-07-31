@@ -14,7 +14,7 @@ class TiingoData:
     def __init__(self):
         with open(TIINGO_KEY, 'r') as fn:
             api_key = json.load(fn)['API_KEY']
-        self.headers = {'Content-Type': 'application/json', 'Authorization' : f'Token {api_key}'}
+        self.headers = {'Content-Type': 'application/json', 'Authorization': f'Token {api_key}'}
 
     def get(self, tickers, exchange, start_date="2000-01-01", end_date="today"):
         if end_date == 'today':
@@ -43,7 +43,7 @@ class TiingoData:
                 params=params,
                 headers=self.headers)
 
-            #TODO: Error handling here could definitely be better....
+            # TODO: Error handling here could definitely be better....
             if response.status_code != 200:
                 print(f"There was an error for ticker {ticker}. Status code: {response.status_code}")
                 continue

@@ -3,7 +3,7 @@ from torch import nn
 from src.models import evolvegcn
 
 
-class ModelA_EvolveGCN_w_Dense(nn.Module):
+class EvolveGCNDenseModel(nn.Module):
     def __init__(self, args, activation, skipfeats=False, predict_periods=3):
         super().__init__()
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
