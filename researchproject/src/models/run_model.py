@@ -3,8 +3,10 @@ import torch
 from torch import optim, nn
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
+
 from sklearn.metrics import accuracy_score
 import numpy as np
+
 from tqdm import tqdm
 import pathlib
 
@@ -15,6 +17,7 @@ from src.data.datasets import CompanyStockGraphDataset
 
 
 class ModelTrainer:
+
     def __init__(self, gcn, clf, optimizer=optim.SGD, optim_args=None, features=('adjVolume',),
                  criterion=nn.CrossEntropyLoss(), epochs=10):
         if optim_args is None:
@@ -27,6 +30,7 @@ class ModelTrainer:
             self.clf.cuda()
         self.gcn_optimizer = optim.SGD(self.gcn.parameters(), **optim_args)
         self.clf_optimizer = optim.SGD(self.clf.parameters(), **optim_args)
+
         self.features = features
         self.batch_size = None
         self.criterion = criterion
@@ -45,6 +49,7 @@ class ModelTrainer:
             self.plot({'Train': train_loss, 'Validation': val_loss})
             print(f"Training loss: {train_loss}")
             print(f"Validation loss: {val_loss}")
+
         test_loss, test_acc = self.training_loop(self.test_loader)
 
     def load_data(self):
@@ -64,6 +69,7 @@ class ModelTrainer:
                                             predict_periods=predict_periods)
         test_data = CompanyStockGraphDataset(self.features, device=device, start_date=dates['test_start'],
                                              end_date=dates['test_end'], window_size=sequence_length,
+
                                              predict_periods=predict_periods)
 
         self.train_loader = DataLoader(train_data, batch_size=self.batch_size, shuffle=False)
@@ -75,6 +81,7 @@ class ModelTrainer:
         mean_loss_hist = []
         acc = []
         pbar = tqdm(loader)
+
         for i, (*inputs, y_true) in enumerate(pbar):
             self.gcn.zero_grad()
             self.clf.zero_grad()
@@ -95,9 +102,11 @@ class ModelTrainer:
             mean_loss_hist.append(mean_loss)
 
             pbar.set_description(f"Mean loss: {round(mean_loss, 4)}, Mean acc: {round(np.mean(acc))}")
+
         pbar.close()
 
         return mean_loss_hist, acc
+
 
     def get_node_embs(self, n_embs, n_idx):
         return torch.cat(
