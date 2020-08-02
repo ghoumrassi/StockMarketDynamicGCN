@@ -71,8 +71,6 @@ class ModelTrainer:
                 loss.backward()
                 self.optimizer.step()
             pbar.set_description(f"Mean loss: {round(mean_loss, 4)}")
-            if i == 10:
-                break
         pbar.close()
 
         return mean_loss_hist, acc
