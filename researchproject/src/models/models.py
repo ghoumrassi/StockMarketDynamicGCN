@@ -14,7 +14,8 @@ class EvolveGCNDenseModel(nn.Module):
         self.lstm = nn.LSTM(input_size=args.layer_2_dim, hidden_size=args.layer_2_dim)
         self.fc = nn.Linear(in_features=args.layer_2_dim, out_features=3)
         self.dropout = nn.Dropout(args.dropout)
-        self.params = nn.ParameterList(list(self.egcn.parameters()) + list(self.lstm.parameters()))
+        self.params = nn.ParameterList(list(self.egcn.parameters()) + list(self.lstm.parameters()) +
+                                       list(self.fc.parameters()))
         # self._parameters = nn.ParameterList().cuda(device=self.device)
         # self._parameters.extend(list(self.egcn.parameters()))
         # self._parameters.extend(list(self.lstm.parameters()))
@@ -34,7 +35,7 @@ class EvolveGCNDenseModel(nn.Module):
             lstm_out_list.append(lstm_in)
         lstm_out = torch.cat(lstm_out_list)
         fc_out = self.fc(lstm_out)
-        act_out = torch.relu(fc_out)
+        act_out = torch.sigmoid(fc_out)
 
         return act_out
 
