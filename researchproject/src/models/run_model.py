@@ -2,6 +2,7 @@
 import torch
 from torch import optim, nn
 from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
 
 from tqdm import tqdm
 
@@ -34,6 +35,7 @@ class ModelTrainer:
             print("Epoch: %s" % epoch)
             train_loss, train_acc = self.training_loop(self.train_loader, training=True)
             val_loss, val_acc = self.training_loop(self.val_loader)
+            self.plot({'Train': train_loss, 'Validation': val_loss})
             print(f"Training loss: {train_loss}")
             print(f"Validation loss: {val_loss}")
 
@@ -54,6 +56,7 @@ class ModelTrainer:
 
     def training_loop(self, loader, training=False):
         running_loss = 0
+        mean_loss_hist = []
         acc = []
         pbar = tqdm(loader)
         for i, (*inputs, y_train) in enumerate(pbar):
@@ -63,14 +66,22 @@ class ModelTrainer:
                                   y_train.view(1, *y_train.shape).long())
             running_loss += loss.item()
             mean_loss = running_loss / (i + 1)
+            mean_loss_hist.append(mean_loss)
             if training:
                 loss.backward()
                 self.optimizer.step()
             pbar.set_description(f"Mean loss: {round(mean_loss, 4)}")
+            if i == 10:
+                break
         pbar.close()
 
-        return running_loss, acc
+        return mean_loss_hist, acc
 
+    def plot(self, series_dict, figure_aspect=(8,8)):
+        fig, ax = plt.subplots(len(series_dict), figsize=figure_aspect)
+        for i, (name, series) in enumerate(series_dict.items()):
+            ax[i].plot(series, label=name)
+        plt.show()
 
 class Args:
     def __init__(self):
