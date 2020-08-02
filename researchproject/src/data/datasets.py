@@ -29,7 +29,7 @@ class CompanyStockGraphDataset(Dataset):
         else:
             self.end_date = dt.datetime.now().timestamp()
 
-        self.conn = create_connection(SQLITE_DB)
+        self.conn = create_connection(str(SQLITE_DB))
         self.c = self.conn.cursor()
 
         with open((SQL_QUERIES / 'article_pair_counts.q'), 'r') as f:
