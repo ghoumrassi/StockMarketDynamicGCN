@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
     model = EvolveGCNDenseModel(args, activation=torch.relu, skipfeats=False, predict_periods=3)
     if device == "cuda:0":
-        model.cuda(device=device)
+        model.cuda()
     # model.double()
 
     features = ['adjVolume']
