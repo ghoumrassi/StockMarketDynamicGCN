@@ -45,7 +45,7 @@ class EvolveGCN(nn.Module):
 
             grcu_i = GRCU(GRCU_args).to(self.device)
             self.GRCU_layers.append(grcu_i)
-            self._parameters.extend(list(grcu_i.parameters()))
+
             for k, v in grcu_i._parameters.items():
                 self.register_parameter(k, v)
 
@@ -65,9 +65,6 @@ class EvolveGCN(nn.Module):
         if self.skipfeats:
             out = torch.cat((out, node_features), dim=1)
         return out
-
-    def parameters(self):
-        return self._parameters
 
 
 class GRCU(nn.Module):
@@ -127,19 +124,24 @@ class MatGRUCell(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.args = args
-        self.update = MatGRUGate(args.rows,
-                                 args.cols,
-                                 torch.sigmoid)
-
-        self.reset = MatGRUGate(args.rows,
-                                args.cols,
-                                torch.sigmoid)
-
-        self.h_tilda = MatGRUGate(args.rows,
-                                  args.cols,
-                                  nn.Tanh())
-
-        self.choose_topk = TopK(features=args.rows, k=args.cols)
+        self.add_module('update',
+                        MatGRUGate(args.rows,
+                                   args.cols,
+                                   torch.sigmoid)
+                        )
+        self.add_module('reset',
+                        MatGRUGate(args.rows,
+                                   args.cols,
+                                   torch.sigmoid)
+                        )
+        self.add_module('h_tilda',
+                        MatGRUGate(args.rows,
+                                   args.cols,
+                                   torch.tanh)
+                        )
+        self.add_module('choose_topk',
+                        TopK(features=args.rows, k=args.cols)
+                        )
 
     def forward(self, X, prev_H, mask):
         """

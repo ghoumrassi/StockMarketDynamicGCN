@@ -64,7 +64,7 @@ class CompanyStockGraphDataset(Dataset):
         X = torch.zeros(
             (self.window_size, len(self.ticker_idx_map), len(self.features)+1),
             device=self.device)
-        y = torch.zeros((self.predict_periods, len(self.ticker_idx_map)), device=self.device)
+        y = torch.zeros((len(self.ticker_idx_map),), device=self.device)
         A = torch.zeros(
             (self.window_size, len(self.ticker_idx_map), len(self.ticker_idx_map)),
             device=self.device
@@ -105,23 +105,22 @@ class CompanyStockGraphDataset(Dataset):
             X[date_idx, ticker_idx, :] = torch.tensor([returns] + args)
 
         # Get y
-        self.c.execute(self.ticker_future_query, (current_date, end_date))
+        self.c.execute(self.ticker_future_query, (end_date, end_date))
         results = self.c.fetchall()
-        for date, ticker, returns in results:
+        for _, ticker, returns in results:
             if not returns:
                 continue
-            date_idx = self.date_idx_map[str(int(date))] - idx - self.window_size
             ticker_idx = self.ticker_idx_map[ticker]
             # oh_vector = torch.zeros(3, device=self.device)
             if returns < -self.returns_threshold:
                 # oh_vector[0] = 1
-                y[date_idx, ticker_idx] = 0
+                y[ticker_idx] = 0
             elif returns > self.returns_threshold:
                 # oh_vector[2] = 1
-                y[date_idx, ticker_idx] = 2
+                y[ticker_idx] = 2
             else:
                 # oh_vector[1] = 1
-                y[date_idx, ticker_idx] = 1
+                y[ticker_idx] = 1
         # Get k
         k = k.fill_(len(self.ticker_idx_map))
 

@@ -3,23 +3,30 @@ import torch
 from torch import optim, nn
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
-
+from sklearn.metrics import accuracy_score
+import numpy as np
 from tqdm import tqdm
+import pathlib
 
-from src.models.models import EvolveGCNDenseModel
+# from src.models.models import EvolveGCNDenseModel
+from src.models.evolvegcn import EvolveGCN
+from src.models.models import NodePredictionModel
 from src.data.datasets import CompanyStockGraphDataset
 
 
 class ModelTrainer:
-    def __init__(self, model, optimizer=optim.SGD, optim_args=None, features=('adjVolume',),
+    def __init__(self, gcn, clf, optimizer=optim.SGD, optim_args=None, features=('adjVolume',),
                  criterion=nn.CrossEntropyLoss(), epochs=10):
         if optim_args is None:
             optim_args = {'lr': 0.01, 'momentum': 0.9}
 
-        self.model = model
+        self.gcn = gcn
+        self.clf = clf
         if device == "cuda:0":
-            self.model.cuda()
-        self.optimizer = optimizer(self.model.params, **optim_args)
+            self.gcn.cuda()
+            self.clf.cuda()
+        self.gcn_optimizer = optim.SGD(self.gcn.parameters(), **optim_args)
+        self.clf_optimizer = optim.SGD(self.clf.parameters(), **optim_args)
         self.features = features
         self.batch_size = None
         self.criterion = criterion
@@ -38,15 +45,16 @@ class ModelTrainer:
             self.plot({'Train': train_loss, 'Validation': val_loss})
             print(f"Training loss: {train_loss}")
             print(f"Validation loss: {val_loss}")
+        test_loss, test_acc = self.training_loop(self.test_loader)
 
     def load_data(self):
-        # dates = {'train_start': '01/01/2010', 'train_end': '31/12/2016',
-        #          'val_start': '30/09/2016', 'val_end': '31/12/2017',
-        #          'test_start': '30/09/2017', 'test_end': '31/12/2018'}
+        dates = {'train_start': '01/01/2010', 'train_end': '31/12/2016',
+                 'val_start': '30/09/2016', 'val_end': '31/12/2017',
+                 'test_start': '30/09/2017', 'test_end': '31/12/2018'}
 
-        dates = {'train_start': '01/01/2015', 'train_end': '31/12/2015',
-                 'val_start': '01/12/2015', 'val_end': '01/02/2016',
-                 'test_start': '30/09/2017', 'test_end': '31/12/2017'}
+        # dates = {'train_start': '01/01/2015', 'train_end': '31/12/2015',
+        #          'val_start': '01/12/2015', 'val_end': '01/02/2016',
+        #          'test_start': '30/09/2017', 'test_end': '31/12/2017'}
 
         train_data = CompanyStockGraphDataset(self.features, device=device, start_date=dates['train_start'],
                                               end_date=dates['train_end'], window_size=sequence_length,
@@ -67,28 +75,53 @@ class ModelTrainer:
         mean_loss_hist = []
         acc = []
         pbar = tqdm(loader)
-        for i, (*inputs, y_train) in enumerate(pbar):
-            self.model.zero_grad()
-            y_pred = self.model(*inputs)
-            loss = self.criterion(y_pred.view(1, *y_pred.shape).permute(0, 3, 1, 2),
-                                  y_train.view(1, *y_train.shape).long())
+        for i, (*inputs, y_true) in enumerate(pbar):
+            self.gcn.zero_grad()
+            self.clf.zero_grad()
+            node_embs = self.gcn(*inputs)
+
+            y_pred = self.clf(node_embs)
+
+            loss = self.criterion(y_pred, y_true.long())
+            # loss = self.criterion(y_pred.view(1, *y_pred.shape).permute(0, 3, 1, 2),
+            #                       y_train.view(1, *y_train.shape).long())
+            if training:
+                loss.backward()
+                self.gcn_optimizer.step()
+                self.clf_optimizer.step()
+            acc.append(accuracy_score(y_true, torch.argmax(y_pred, dim=1)))
             running_loss += loss.item()
             mean_loss = running_loss / (i + 1)
             mean_loss_hist.append(mean_loss)
-            if training:
-                loss.backward()
-                self.optimizer.step()
-            pbar.set_description(f"Mean loss: {round(mean_loss, 4)}")
-            # print(mean_loss_hist)
+
+            pbar.set_description(f"Mean loss: {round(mean_loss, 4)}, Mean acc: {round(np.mean(acc))}")
         pbar.close()
 
         return mean_loss_hist, acc
+
+    def get_node_embs(self, n_embs, n_idx):
+        return torch.cat(
+            [n_embs[n_set] for n_set in n_idx],
+            dim=1
+        )
 
     def plot(self, series_dict, figure_aspect=(8,8)):
         fig, ax = plt.subplots(len(series_dict), figsize=figure_aspect)
         for i, (name, series) in enumerate(series_dict.items()):
             ax[i].plot(series, label=name)
         plt.show()
+
+    # def save_checkpoint(self, state, fn):
+    #     torch.save(state, fn)
+    #
+    # def load_checkpoint(self, fn):
+    #     checkpoint = torch.load(fn)
+    #     epoch = checkpoint['epoch']
+    #     self.gcn.load_state_dict(checkpoint['gcn_dict'])
+    #     self.clf.load_state_dict(checkpoint['clf_dict'])
+    #     self.gcn_optimizer.load_state_dict(checkpoint['gcn_optimizer'])
+    #     self.clf_optimizer.load_state_dict(checkpoint['classifier_optimizer'])
+    #     return epoch
 
 class Args:
     def __init__(self):
@@ -103,10 +136,11 @@ class Args:
 if __name__ == "__main__":
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     sequence_length = 30
-    predict_periods = 3 #TODO: it's broken @ any value other than 3
+    predict_periods = 7 #TODO: it's broken @ any value other than 3
     args = Args()
 
-    evolve_model = EvolveGCNDenseModel(args, activation=torch.relu, skipfeats=False, predict_periods=3)
+    evolve_model = EvolveGCN(args, activation=torch.relu, skipfeats=False)
+    clf_model = NodePredictionModel(args)
 
-    trainer = ModelTrainer(evolve_model)
+    trainer = ModelTrainer(evolve_model, clf_model)
     trainer.run()
