@@ -33,7 +33,7 @@ class EvolveGCN(nn.Module):
         # next layer.
         self.skipfeats = skipfeats
         self.GRCU_layers = []
-        self._parameters = nn.ParameterList()
+
 
         # Makes GRCU_layers: a list of the 3 GRCU layers for each GCN cell
         for i in range(1, len(features)):
@@ -45,7 +45,8 @@ class EvolveGCN(nn.Module):
 
             grcu_i = GRCU(GRCU_args).to(self.device)
             self.GRCU_layers.append(grcu_i)
-            self._parameters.extend(list(grcu_i.parameters()))
+            for k, v in grcu_i._parameters.items():
+                self.register_parameter(k, v)
 
     def forward(self, A_list, X_list, node_mask_list):
         """
@@ -63,9 +64,6 @@ class EvolveGCN(nn.Module):
         if self.skipfeats:
             out = torch.cat((out, node_features), dim=1)
         return out
-
-    def parameters(self):
-        return self._parameters
 
 
 class GRCU(nn.Module):

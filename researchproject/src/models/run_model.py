@@ -29,6 +29,7 @@ if __name__ == "__main__":
     if device == "cuda:0":
         model.cuda()
     # model.double()
+    print(model.device)
 
     features = ['adjVolume']
 
