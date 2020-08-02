@@ -33,7 +33,7 @@ class EvolveGCN(nn.Module):
         # next layer.
         self.skipfeats = skipfeats
         self.GRCU_layers = []
-        # self._parameters = nn.ParameterList()
+
 
         # Makes GRCU_layers: a list of the 3 GRCU layers for each GCN cell
         for i in range(1, len(features)):
