@@ -15,7 +15,7 @@ class CompanyStockGraphDataset(Dataset):
     """
 
     def __init__(self, features, device="cpu", window_size=90, predict_periods=3, persistence=None,
-                 returns_threshold=0.01, start_date='01/01/2010', end_date=None):
+                 returns_threshold=0.03, start_date='01/01/2010', end_date=None):
         self.features = features
         self.device = device
         self.window_size = window_size
@@ -138,9 +138,13 @@ if __name__ == "__main__":
     ds = CompanyStockGraphDataset(features=['adjVolume'])
     for i in range(2500, 2510):
         A, X, k, y = ds[i]
+        print("Classes: ")
+        print(f"-ve: {(y == 0).sum()}")
+        print(f"neu: {(y == 1).sum()}")
+        print(f"+ve: {(y == 2).sum()}")
         if i == 2500:
             print(f"A.shape: {A.shape}\nX.shape: {X.shape}\ny.shape: {y.shape}\n")
-        print("A: ", A)
-        print("X: ", X)
-        print("y: ", y)
+        # print("A: ", A)
+        # print("X: ", X)
+        # print("y: ", y)
 
