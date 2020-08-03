@@ -103,7 +103,7 @@ class ModelTrainer:
             mean_loss = running_loss / (i + 1)
             mean_loss_hist.append(mean_loss)
 
-            pbar.set_description(f"Mean loss: {round(mean_loss, 4)}, Mean acc: {round(np.mean(acc))}")
+            pbar.set_description(f"Mean loss: {round(mean_loss, 4)}, Mean acc: {round(np.mean(acc), 4)}")
 
         pbar.close()
 
