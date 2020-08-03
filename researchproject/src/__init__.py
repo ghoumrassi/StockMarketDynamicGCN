@@ -2,6 +2,10 @@ from pkg_resources import resource_filename
 from pathlib import Path
 import pandas as pd
 
+"""
+FOR DATA
+"""
+
 ''' NY Times '''
 # NYTimes raw files
 NY_FOLDER = Path(resource_filename(__name__, '../data/external/nytimes'))
@@ -56,3 +60,10 @@ except FileNotFoundError:
 NYT_ADJ_MATRIX = Path(resource_filename(__name__, '../data/processed/nyt_adj.npy'))
 
 
+"""
+FOR MODEL
+"""
+
+MODEL_SAVE_DIR = Path(resource_filename(__name__, '../misc/checkpoints'))
+if not MODEL_SAVE_DIR.exists():
+    MODEL_SAVE_DIR.mkdir(parents=True, exist_ok=True)

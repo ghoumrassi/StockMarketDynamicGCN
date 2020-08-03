@@ -1,7 +1,6 @@
 import sqlite3
 
 from src import SQLITE_DB
-from src.errors import error_handling
 
 
 def create_connection(db_file):
@@ -11,7 +10,7 @@ def create_connection(db_file):
         conn = sqlite3.connect(db_file)
         print(sqlite3.version)
     except Exception as e:
-        error_handling(e)
+        pass
     return conn
 
 
@@ -21,7 +20,7 @@ def execute_query(conn, query):
         c = conn.cursor()
         c.execute(query)
     except Exception as e:
-        error_handling(e)
+        pass
 
 
 if __name__ == '__main__':
