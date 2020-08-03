@@ -74,9 +74,9 @@ class ModelTrainer:
                  'val_start': '30/09/2016', 'val_end': '31/12/2017',
                  'test_start': '30/09/2017', 'test_end': '31/12/2018'}
 
-        # dates = {'train_start': '01/01/2015', 'train_end': '31/12/2015',
-        #          'val_start': '01/12/2015', 'val_end': '01/02/2016',
-        #          'test_start': '30/09/2017', 'test_end': '31/12/2017'}
+        dates = {'train_start': '01/01/2015', 'train_end': '31/12/2015',
+                 'val_start': '01/12/2015', 'val_end': '01/02/2016',
+                 'test_start': '30/09/2017', 'test_end': '31/12/2017'}
 
         train_data = CompanyStockGraphDataset(self.features, device=self.device, start_date=dates['train_start'],
                                               end_date=dates['train_end'], window_size=sequence_length,
@@ -175,8 +175,8 @@ class ModelTrainer:
 class Args:
     def __init__(self):
         self.node_feat_dim = 2
-        self.layer_1_dim = 200
-        self.layer_2_dim = 200
+        self.layer_1_dim = 512
+        self.layer_2_dim = 512
         self.fc_1_dim = 200
         self.fc_2_dim = 3
         self.dropout = 0.5
@@ -208,8 +208,8 @@ if __name__ == "__main__":
                 optim_args[arg.replace("opt_", "")] = args.__dict__[arg]
 
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    sequence_length = 30
-    predict_periods = 7 #TODO: it's broken @ any value other than 3
+    sequence_length = 90
+    predict_periods = 3 #TODO: it's broken @ any value other than 3
     model_args = Args()
 
     evolve_model = EvolveGCN(model_args, activation=torch.relu, skipfeats=False)
