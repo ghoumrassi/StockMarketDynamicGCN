@@ -23,9 +23,10 @@ class ModelTrainer:
         if optim_args is None:
             optim_args = {'lr': 0.01, 'momentum': 0.9}
 
+        self.device = device
         self.gcn = gcn
         self.clf = clf
-        if device == "cuda:0":
+        if self.device == "cuda:0":
             self.gcn.cuda()
             self.clf.cuda()
         self.gcn_optimizer = optim.SGD(self.gcn.parameters(), **optim_args)
@@ -61,13 +62,13 @@ class ModelTrainer:
         #          'val_start': '01/12/2015', 'val_end': '01/02/2016',
         #          'test_start': '30/09/2017', 'test_end': '31/12/2017'}
 
-        train_data = CompanyStockGraphDataset(self.features, device=device, start_date=dates['train_start'],
+        train_data = CompanyStockGraphDataset(self.features, device=self.device, start_date=dates['train_start'],
                                               end_date=dates['train_end'], window_size=sequence_length,
                                               predict_periods=predict_periods)
-        val_data = CompanyStockGraphDataset(self.features, device=device, start_date=dates['val_start'],
+        val_data = CompanyStockGraphDataset(self.features, device=self.device, start_date=dates['val_start'],
                                             end_date=dates['val_end'], window_size=sequence_length,
                                             predict_periods=predict_periods)
-        test_data = CompanyStockGraphDataset(self.features, device=device, start_date=dates['test_start'],
+        test_data = CompanyStockGraphDataset(self.features, device=self.device, start_date=dates['test_start'],
                                              end_date=dates['test_end'], window_size=sequence_length,
 
                                              predict_periods=predict_periods)
@@ -96,7 +97,8 @@ class ModelTrainer:
                 loss.backward()
                 self.gcn_optimizer.step()
                 self.clf_optimizer.step()
-            acc.append(accuracy_score(y_true, torch.argmax(y_pred, dim=1)))
+
+            acc.append(get_accuracy(y_true, y_pred))
             running_loss += loss.item()
             mean_loss = running_loss / (i + 1)
             mean_loss_hist.append(mean_loss)
@@ -131,6 +133,12 @@ class ModelTrainer:
     #     self.gcn_optimizer.load_state_dict(checkpoint['gcn_optimizer'])
     #     self.clf_optimizer.load_state_dict(checkpoint['classifier_optimizer'])
     #     return epoch
+
+    def get_accuracy(self, true, predictions):
+        if self.device == "cpu":
+            return accuracy_score(true, torch.argmax(predictions, dim=1))
+        else:
+            return accuracy_score(true.cpu(), torch.argmax(predictions, dim=1).cpu())
 
 class Args:
     def __init__(self):
