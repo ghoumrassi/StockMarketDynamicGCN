@@ -1,6 +1,5 @@
 import torch
 from torch.utils.data import Dataset
-import pickle
 import datetime as dt
 import numpy as np
 
@@ -93,7 +92,7 @@ class CompanyStockGraphDataset(Dataset):
         y = torch.zeros((len(self.ticker_idx_map),), device=self.device)
         self.c.execute(self.ticker_future_query, (current, end))
         results = self.c.fetchall()
-        for _, ticker, returns in results:
+        for ticker, returns in results:
             if not returns:
                 continue
             ticker_idx = self.ticker_idx_map[ticker]
