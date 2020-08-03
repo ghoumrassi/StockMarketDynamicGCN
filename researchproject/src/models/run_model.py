@@ -98,7 +98,7 @@ class ModelTrainer:
                 self.gcn_optimizer.step()
                 self.clf_optimizer.step()
 
-            acc.append(get_accuracy(y_true, y_pred))
+            acc.append(self.get_accuracy(y_true, y_pred))
             running_loss += loss.item()
             mean_loss = running_loss / (i + 1)
             mean_loss_hist.append(mean_loss)
@@ -156,7 +156,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-opt', '--o', dest="optimizer", default="adam",
                         help="Choice of optimiser (currently 'adam' or 'sgd').")
-    parser.add_argument('-epochs', '--e', dest="epochs", default=10, help="# of epochs to run for.")
+    parser.add_argument('-epochs', '--e', dest="epochs", default=10, type=int, help="# of epochs to run for.")
     parsed, unknown = parser.parse_known_args()
 
     for arg in unknown:
@@ -182,5 +182,12 @@ if __name__ == "__main__":
     evolve_model = EvolveGCN(model_args, activation=torch.relu, skipfeats=False)
     clf_model = NodePredictionModel(model_args)
 
-    trainer = ModelTrainer(evolve_model, clf_model, optimizer=args.optimizer, optim_args=optim_args, epochs=args.epochs)
+    if args.optimizer == "sgd":
+        optimizer = optim.SGD
+    elif args.optimizer == "adam":
+        optimizer = optim.Adam
+    else:
+        raise NotImplementedError("Optimizer must be 'sgd' or 'adam'.")
+
+    trainer = ModelTrainer(evolve_model, clf_model, optimizer=optimizer, optim_args=optim_args, epochs=args.epochs)
     trainer.run()
