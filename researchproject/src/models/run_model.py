@@ -70,9 +70,9 @@ class ModelTrainer:
         test_loss, test_acc = self.training_loop(self.test_loader)
 
     def load_data(self):
-        dates = {'train_start': '01/01/2010', 'train_end': '31/12/2016',
-                 'val_start': '30/09/2016', 'val_end': '31/12/2017',
-                 'test_start': '30/09/2017', 'test_end': '31/12/2018'}
+        # dates = {'train_start': '01/01/2010', 'train_end': '31/12/2016',
+        #          'val_start': '30/09/2016', 'val_end': '31/12/2017',
+        #          'test_start': '30/09/2017', 'test_end': '31/12/2018'}
 
         dates = {'train_start': '01/01/2015', 'train_end': '31/12/2015',
                  'val_start': '01/12/2015', 'val_end': '01/02/2016',
@@ -98,43 +98,39 @@ class ModelTrainer:
         mean_loss_hist = []
         acc = []
         f1 = []
-        pbar = tqdm(loader)
-
         try:
-            for i, (*inputs, y_true) in enumerate(pbar):
-                self.current_iteration = i
-                self.gcn.zero_grad()
-                self.clf.zero_grad()
-                node_embs = self.gcn(*inputs)
+            with tqdm(loader) as pbar:
+                for i, (*inputs, y_true) in enumerate(pbar):
+                    self.current_iteration = i
+                    self.gcn.zero_grad()
+                    self.clf.zero_grad()
+                    node_embs = self.gcn(*inputs)
 
-                y_pred = self.clf(node_embs)
+                    y_pred = self.clf(node_embs)
 
-                loss = self.criterion(y_pred, y_true.long())
+                    loss = self.criterion(y_pred, y_true.long())
+
+                    if training:
+                        loss.backward()
+                        self.gcn_optimizer.step()
+                        self.clf_optimizer.step()
+
+                    acc.append(self.get_accuracy(y_true, y_pred))
+                    f1.append(self.get_f1(y_true, y_pred))
+                    running_loss += loss.item()
+                    mean_loss = running_loss / (i + 1)
+                    mean_loss_hist.append(mean_loss)
+
+                    pbar.set_description(
+                        f"Mean loss: {round(mean_loss, 4)}, Mean acc: {round(np.mean(acc), 4)}, "
+                        f"Mean F1: {round(np.mean(f1), 4)}"
+                    )
 
                 if training:
-                    loss.backward()
-                    self.gcn_optimizer.step()
-                    self.clf_optimizer.step()
-
-                acc.append(self.get_accuracy(y_true, y_pred))
-                f1.append(self.get_f1(y_true, y_pred))
-                running_loss += loss.item()
-                mean_loss = running_loss / (i + 1)
-                mean_loss_hist.append(mean_loss)
-
-                pbar.set_description(
-                    f"Mean loss: {round(mean_loss, 4)}, Mean acc: {round(np.mean(acc), 4)}, "
-                    f"Mean F1: {round(np.mean(f1), 4)}"
-                )
-
-            if training:
-                self.save_checkpoint(self.gcn, self.gcn_file)
-                self.save_checkpoint(self.clf, self.clf_file)
-
-            pbar.close()
+                    self.save_checkpoint(self.gcn, self.gcn_file)
+                    self.save_checkpoint(self.clf, self.clf_file)
         except Exception as e:
             logger.log_model_error(e, self.model_files, self.current_epoch, self.current_iteration)
-            pbar.close()
             raise Exception("Error occured: check 'modelerror' table.")
 
         return mean_loss_hist, acc
