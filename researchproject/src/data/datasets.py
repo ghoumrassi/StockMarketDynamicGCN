@@ -128,6 +128,12 @@ class CompanyStockGraphDataset(Dataset):
 
 
 if __name__ == "__main__":
-    import unittest
-
     ds = CompanyStockGraphDataset(features=['adjVolume'])
+    for i in range(2500, 2510):
+        A, X, k, y = ds[i]
+        if i == 2500:
+            print(f"A.shape: {A.shape}\nX.shape: {X.shape}\ny.shape: {y.shape}\n")
+        print("A: ", A)
+        print("X: ", X)
+        print("y: ", y)
+
