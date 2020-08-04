@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import Dataset
 import datetime as dt
 import numpy as np
-
+from sqlite3.dbapi2 import OperationalError
 
 from src import *
 from src.data.utils import create_connection
@@ -67,10 +67,19 @@ class CompanyStockGraphDataset(Dataset):
         current_date = self.idx_date_map[idx + self.window_size]
         end_date = self.idx_date_map[idx + (self.window_size + self.predict_periods)]
 
-        A = self.get_A(idx, start_date, current_date)
-        X = self.get_X(idx, start_date, current_date)
-        k = self.get_k()
-        y = self.get_y(current_date, end_date)
+        try:
+            A = self.get_A(idx, start_date, current_date)
+            X = self.get_X(idx, start_date, current_date)
+            k = self.get_k()
+            y = self.get_y(current_date, end_date)
+        except OperationalError:
+            print("DB connection hang - retrying...")
+            self.conn.close()
+            self.conn = create_connection(str(SQLITE_DB))
+            A = self.get_A(idx, start_date, current_date)
+            X = self.get_X(idx, start_date, current_date)
+            k = self.get_k()
+            y = self.get_y(current_date, end_date)
 
         return A, X, k, y
 

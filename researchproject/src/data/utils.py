@@ -7,7 +7,7 @@ def create_connection(db_file):
     """ Creates a connection to the db. """
     conn = None
     try:
-        conn = sqlite3.connect(db_file)
+        conn = sqlite3.connect(db_file, timeout=30)
         print(sqlite3.version)
     except Exception as e:
         pass
