@@ -3,6 +3,7 @@ import torch
 from torch import optim, nn
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
+from sqlite3.dbapi2 import OperationalError
 
 from sklearn.metrics import accuracy_score, f1_score
 import numpy as np
@@ -20,7 +21,7 @@ class ModelTrainer:
 
     def __init__(self, gcn, clf, optimizer=optim.SGD, optim_args=None, features=('adjVolume',),
                  criterion=nn.CrossEntropyLoss(), epochs=10, gcn_file="gcn_data", clf_file="clf_data",
-                 load_model=None):
+                 load_model=None, timeout=30):
         if optim_args is None:
             optim_args = {'lr': 0.01, 'momentum': 0.9}
 
@@ -31,6 +32,7 @@ class ModelTrainer:
         self.clf_file = MODEL_SAVE_DIR / clf_file
         self.model_files = [self.gcn_file, self.clf_file]
         self.start_epoch = 0
+        self.timeout = timeout
 
         if load_model:
             # TODO: Make checkpoint loading funtion
@@ -52,48 +54,51 @@ class ModelTrainer:
         self.current_epoch = None
         self.current_iteration = None
 
+        self.train_data = None
+        self.val_data = None
+        self.test_data = None
+
         self.train_loader = None
         self.val_loader = None
         self.test_loader = None
 
     def run(self):
-        self.load_data()
+        self.load_data(timeout=self.timeout)
         for epoch in range(self.start_epoch, self.epochs):
             self.current_epoch = epoch
             print("Epoch: %s" % epoch)
-            train_loss, train_acc = self.training_loop(self.train_loader, training=True)
-            val_loss, val_acc = self.training_loop(self.val_loader)
+            train_loss, train_acc = self.training_loop(self.train_loader, self.train_data, training=True)
+            val_loss, val_acc = self.training_loop(self.val_loader, self.val_data)
             self.plot({'Train': train_loss, 'Validation': val_loss})
             print(f"Training loss: {train_loss}")
             print(f"Validation loss: {val_loss}")
 
         test_loss, test_acc = self.training_loop(self.test_loader)
 
-    def load_data(self):
-        # dates = {'train_start': '01/01/2010', 'train_end': '31/12/2016',
-        #          'val_start': '30/09/2016', 'val_end': '31/12/2017',
-        #          'test_start': '30/09/2017', 'test_end': '31/12/2018'}
+    def load_data(self, timeout=30):
+        dates = {'train_start': '01/01/2010', 'train_end': '31/12/2016',
+                 'val_start': '30/09/2016', 'val_end': '31/12/2017',
+                 'test_start': '30/09/2017', 'test_end': '31/12/2018'}
 
-        dates = {'train_start': '01/01/2015', 'train_end': '31/12/2015',
-                 'val_start': '01/12/2015', 'val_end': '01/02/2016',
-                 'test_start': '30/09/2017', 'test_end': '31/12/2017'}
+        # dates = {'train_start': '01/01/2015', 'train_end': '31/12/2015',
+        #          'val_start': '01/12/2015', 'val_end': '01/02/2016',
+        #          'test_start': '30/09/2017', 'test_end': '31/12/2017'}
 
-        train_data = CompanyStockGraphDataset(self.features, device=self.device, start_date=dates['train_start'],
-                                              end_date=dates['train_end'], window_size=sequence_length,
-                                              predict_periods=predict_periods)
-        val_data = CompanyStockGraphDataset(self.features, device=self.device, start_date=dates['val_start'],
-                                            end_date=dates['val_end'], window_size=sequence_length,
-                                            predict_periods=predict_periods)
-        test_data = CompanyStockGraphDataset(self.features, device=self.device, start_date=dates['test_start'],
-                                             end_date=dates['test_end'], window_size=sequence_length,
+        self.train_data = CompanyStockGraphDataset(self.features, device=self.device, start_date=dates['train_start'],
+                                                   end_date=dates['train_end'], window_size=sequence_length,
+                                                   predict_periods=predict_periods, timeout=timeout)
+        self.val_data = CompanyStockGraphDataset(self.features, device=self.device, start_date=dates['val_start'],
+                                                 end_date=dates['val_end'], window_size=sequence_length,
+                                                 predict_periods=predict_periods, timeout=timeout)
+        self.test_data = CompanyStockGraphDataset(self.features, device=self.device, start_date=dates['test_start'],
+                                                  end_date=dates['test_end'], window_size=sequence_length,
+                                                  predict_periods=predict_periods, timeout=timeout)
 
-                                             predict_periods=predict_periods)
+        self.train_loader = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=False)
+        self.val_loader = DataLoader(self.val_data, batch_size=self.batch_size, shuffle=False)
+        self.test_loader = DataLoader(self.test_data, batch_size=self.batch_size, shuffle=False)
 
-        self.train_loader = DataLoader(train_data, batch_size=self.batch_size, shuffle=False)
-        self.val_loader = DataLoader(val_data, batch_size=self.batch_size, shuffle=False)
-        self.test_loader = DataLoader(test_data, batch_size=self.batch_size, shuffle=False)
-
-    def training_loop(self, loader, training=False):
+    def training_loop(self, loader, dataset, training=False):
         running_loss = 0
         mean_loss_hist = []
         acc = []
@@ -126,9 +131,14 @@ class ModelTrainer:
                         f"Mean F1: {round(np.mean(f1), 4)}"
                     )
 
+
                 if training:
                     self.save_checkpoint(self.gcn, self.gcn_file)
                     self.save_checkpoint(self.clf, self.clf_file)
+        except OperationalError:
+            dataset.close_connection()
+            dataset.open_connection()
+
         except Exception as e:
             logger.log_model_error(e, self.model_files, self.current_epoch, self.current_iteration)
             raise Exception("Error occured: check 'modelerror' table.")
@@ -182,14 +192,16 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-opt', '--o', dest="optimizer", default="adam",
+    parser.add_argument('--opt', '-o', dest="optimizer", default="adam",
                         help="Choice of optimiser (currently 'adam' or 'sgd').")
-    parser.add_argument('-epochs', '--e', dest="epochs", default=10, type=int, help="# of epochs to run for.")
-    parser.add_argument('-load', '--l', dest="load_model", default=None, help="Filename for loaded model.")
+    parser.add_argument('--epochs', '-e', dest="epochs", default=10, type=int, help="# of epochs to run for.")
+    parser.add_argument('--load', '-l', dest="load_model", default=None, help="Filename for loaded model.")
+    parser.add_argument('--timeout', '-t', dest='timeout', default=30,
+                        help="# of seconds before SQL raises error for blocked connection.")
     parsed, unknown = parser.parse_known_args()
 
     for arg in unknown:
-        if arg.startswith("-opt_"):
+        if arg.startswith("--opt_"):
             parser.add_argument(arg)
     args = parser.parse_args()
 
