@@ -3,11 +3,11 @@ import sqlite3
 from src import SQLITE_DB
 
 
-def create_connection(db_file):
+def create_connection(db_file, timeout=30):
     """ Creates a connection to the db. """
     conn = None
     try:
-        conn = sqlite3.connect(db_file, timeout=30)
+        conn = sqlite3.connect(db_file, timeout=timeout)
         print(sqlite3.version)
     except Exception as e:
         pass

@@ -13,9 +13,8 @@ class CompanyStockGraphDataset(Dataset):
     Creates dataset for use in D-GNN models.
     Each slice returns [X_t, A_t, y_t]
     """
-
     def __init__(self, features, device="cpu", window_size=90, predict_periods=3, persistence=None,
-                 returns_threshold=0.03, start_date='01/01/2010', end_date=None):
+                 returns_threshold=0.03, start_date='01/01/2010', end_date=None, timeout=30):
         self.features = features
         self.device = device
         self.window_size = window_size
@@ -27,8 +26,9 @@ class CompanyStockGraphDataset(Dataset):
             self.end_date = dt.datetime.strptime(end_date, '%d/%m/%Y').timestamp()
         else:
             self.end_date = dt.datetime.now().timestamp()
+        self.timeout = timeout
 
-        self.conn = create_connection(str(SQLITE_DB))
+        self.conn = create_connection(str(SQLITE_DB), timeout=self.timeout)
         self.c = self.conn.cursor()
 
         with open((SQL_QUERIES / 'article_pair_counts.q'), 'r') as f:
@@ -141,6 +141,13 @@ class CompanyStockGraphDataset(Dataset):
         k = torch.zeros((self.window_size,), device=self.device)
         k = k.fill_(len(self.ticker_idx_map))
         return k
+
+    def close_connection(self):
+        self.conn.close()
+
+    def open_connection(self):
+        self.conn = create_connection(str(SQLITE_DB), timeout=self.timeout)
+        self.c = self.conn.cursor()
 
 
 if __name__ == "__main__":

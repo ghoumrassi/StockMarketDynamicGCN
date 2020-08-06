@@ -86,13 +86,13 @@ class ModelTrainer:
 
         self.train_data = CompanyStockGraphDataset(self.features, device=self.device, start_date=dates['train_start'],
                                                    end_date=dates['train_end'], window_size=sequence_length,
-                                                   predict_periods=predict_periods, timeout=timeout)
+                                                   predict_periods=predict_periods, timeout=self.timeout)
         self.val_data = CompanyStockGraphDataset(self.features, device=self.device, start_date=dates['val_start'],
                                                  end_date=dates['val_end'], window_size=sequence_length,
-                                                 predict_periods=predict_periods, timeout=timeout)
+                                                 predict_periods=predict_periods, timeout=self.timeout)
         self.test_data = CompanyStockGraphDataset(self.features, device=self.device, start_date=dates['test_start'],
                                                   end_date=dates['test_end'], window_size=sequence_length,
-                                                  predict_periods=predict_periods, timeout=timeout)
+                                                  predict_periods=predict_periods, timeout=self.timeout)
 
         self.train_loader = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=False)
         self.val_loader = DataLoader(self.val_data, batch_size=self.batch_size, shuffle=False)
@@ -231,5 +231,5 @@ if __name__ == "__main__":
         raise NotImplementedError("Optimizer must be 'sgd' or 'adam'.")
 
     trainer = ModelTrainer(evolve_model, clf_model, optimizer=optimizer, optim_args=optim_args, epochs=args.epochs,
-                           load_model=args.load_model)
+                           load_model=args.load_model, timeout=args.timeout)
     trainer.run()
