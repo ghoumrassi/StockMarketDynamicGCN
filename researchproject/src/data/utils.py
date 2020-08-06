@@ -10,7 +10,7 @@ def create_connection(db_file, timeout=30):
         conn = sqlite3.connect(db_file, timeout=timeout)
         print(sqlite3.version)
     except Exception as e:
-        pass
+        print(e)
     return conn
 
 

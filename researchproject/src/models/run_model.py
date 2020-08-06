@@ -196,7 +196,7 @@ if __name__ == "__main__":
                         help="Choice of optimiser (currently 'adam' or 'sgd').")
     parser.add_argument('--epochs', '-e', dest="epochs", default=10, type=int, help="# of epochs to run for.")
     parser.add_argument('--load', '-l', dest="load_model", default=None, help="Filename for loaded model.")
-    parser.add_argument('--timeout', '-t', dest='timeout', default=30,
+    parser.add_argument('--timeout', '-t', dest='timeout', default=30, type=int,
                         help="# of seconds before SQL raises error for blocked connection.")
     parsed, unknown = parser.parse_known_args()
 
