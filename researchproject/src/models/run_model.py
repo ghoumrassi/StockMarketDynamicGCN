@@ -35,7 +35,7 @@ class ModelTrainer:
         self.timeout = timeout
 
         if load_model:
-            # TODO: Make checkpoint loading funtion
+            # TODO: Make checkpoint loading function
             self.start_epoch = load_model.start_epoch
             self.load_checkpoint(self.gcn, load_model.gcn_checkpoint)
             self.load_checkpoint(self.clf, load_model.clf_checkpoint)
@@ -103,45 +103,42 @@ class ModelTrainer:
         mean_loss_hist = []
         acc = []
         f1 = []
-        try:
-            with tqdm(loader) as pbar:
-                for i, (*inputs, y_true) in enumerate(pbar):
-                    self.current_iteration = i
-                    self.gcn.zero_grad()
-                    self.clf.zero_grad()
-                    node_embs = self.gcn(*inputs)
+        with tqdm(loader) as pbar:
+            for i, (*inputs, y_true) in enumerate(pbar):
+                self.current_iteration = i
+                self.gcn.zero_grad()
+                self.clf.zero_grad()
+                node_embs = self.gcn(*inputs)
 
-                    y_pred = self.clf(node_embs)
+                y_pred = self.clf(node_embs)
 
-                    loss = self.criterion(y_pred, y_true.long())
-
-                    if training:
-                        loss.backward()
-                        self.gcn_optimizer.step()
-                        self.clf_optimizer.step()
-
-                    acc.append(self.get_accuracy(y_true, y_pred))
-                    f1.append(self.get_f1(y_true, y_pred))
-                    running_loss += loss.item()
-                    mean_loss = running_loss / (i + 1)
-                    mean_loss_hist.append(mean_loss)
-
-                    pbar.set_description(
-                        f"Mean loss: {round(mean_loss, 4)}, Mean acc: {round(np.mean(acc), 4)}, "
-                        f"Mean F1: {round(np.mean(f1), 4)}"
-                    )
-
+                loss = self.criterion(y_pred, y_true.long())
 
                 if training:
-                    self.save_checkpoint(self.gcn, self.gcn_file)
-                    self.save_checkpoint(self.clf, self.clf_file)
-        except OperationalError:
-            dataset.close_connection()
-            dataset.open_connection()
+                    loss.backward()
+                    self.gcn_optimizer.step()
+                    self.clf_optimizer.step()
 
-        except Exception as e:
-            logger.log_model_error(e, self.model_files, self.current_epoch, self.current_iteration)
-            raise Exception("Error occured: check 'modelerror' table.")
+                acc.append(self.get_accuracy(y_true, y_pred))
+                f1.append(self.get_f1(y_true, y_pred))
+                running_loss += loss.item()
+                mean_loss = running_loss / (i + 1)
+                mean_loss_hist.append(mean_loss)
+
+                pbar.set_description(
+                    f"Mean loss: {round(mean_loss, 4)}, Mean acc: {round(np.mean(acc), 4)}, "
+                    f"Mean F1: {round(np.mean(f1), 4)}"
+                )
+            if training:
+                self.save_checkpoint(self.gcn, self.gcn_file)
+                self.save_checkpoint(self.clf, self.clf_file)
+        # except OperationalError:
+        #     dataset.close_connection()
+        #     dataset.open_connection()
+        #
+        # except Exception as e:
+        #     logger.log_model_error(e, self.model_files, self.current_epoch, self.current_iteration)
+        #     raise Exception("Error occured: check 'modelerror' table.")
 
         return mean_loss_hist, acc
 
@@ -177,6 +174,12 @@ class ModelTrainer:
         else:
             return f1_score(true.cpu(), torch.argmax(predictions, dim=1).cpu(), average="macro")
 
+    def close(self):
+        for dataset in (self.train_data, self.test_data, self.val_data):
+            if dataset.db == 'sqlite':
+                dataset.conn.close()
+            else:
+                dataset.engine.close()
 
 class Args:
     def __init__(self):
@@ -232,4 +235,7 @@ if __name__ == "__main__":
 
     trainer = ModelTrainer(evolve_model, clf_model, optimizer=optimizer, optim_args=optim_args, epochs=args.epochs,
                            load_model=args.load_model, timeout=args.timeout)
-    trainer.run()
+    try:
+        trainer.run()
+    finally:
+        trainer.close()
