@@ -31,9 +31,14 @@ FM_OUTPUT = Path(resource_filename(__name__, '../data/interim/fuzzy'))
 # Text file containing common terms in entity list for replacement
 FUZZY_STOP_FILE = Path(resource_filename(__name__, '../misc/company_stopwords.txt'))
 
-''' SQLite Database '''
+''' Queries '''
+QUERIES = Path(resource_filename(__name__, '../queries'))
+
+''' sqlite Database '''
 SQLITE_DB = Path(resource_filename(__name__, '../data/projectdata.db'))
-SQL_QUERIES = Path(resource_filename(__name__, '../queries/SQLite'))
+
+''' PostgreSQL Database '''
+PG_CREDENTIALS = Path(resource_filename(__name__, '../misc/pg_creds.json'))
 
 ''' H5 '''
 # H5 File

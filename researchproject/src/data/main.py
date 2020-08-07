@@ -3,6 +3,9 @@ import pickle
 
 from src import WD_OUTPUT, NYT_OUTPUT, FM_OUTPUT, SQLITE_DB
 from src.data import format_nytimes, get_wikidata, get_tiingo, fuzzy_match
+from src.data.populate_db import populate_summaries, populate_industry, populate_dates, populate_mapper, \
+    populate_subsidiaries, populate_ticker
+from src.data.utils import create_connection, create_connection_psql
 
 
 def main(download=False):
@@ -45,13 +48,18 @@ def main(download=False):
     format_nytimes.make_summaries(mapper, 'summaries.csv', start_date=start_date)
 
     # Make db
-    connection = create_connection(SQLITE_DB)
+    if db == "sqlite":
+        conn = create_connection(SQLITE_DB)
+    else:
+        conn = create_connection_psql('localhost', 'GNNStockProject')
     populate_summaries(conn)
     populate_industry(conn)
     populate_dates(conn)
     populate_mapper(conn)
     populate_subsidiaries(conn)
     populate_ticker(conn)  # This one takes a looong time
+
+    conn.close()
 
     print("DONE!")
 
