@@ -34,7 +34,7 @@ class CompanyStockGraphDataset(Dataset):
             self.conn = create_connection(str(SQLITE_DB), timeout=self.timeout)
             self.c = self.conn.cursor()
         elif self.db == 'psql':
-            self.engine = create_connection_psql()
+            self.engine = create_connection_psql(PG_CREDENTIALS)
         else:
             raise NotImplementedError("Must use modes 'sqlite' or 'psql' for db.")
 
