@@ -21,7 +21,7 @@ class ModelTrainer:
 
     def __init__(self, gcn, clf, optimizer=optim.SGD, optim_args=None, features=('adjVolume',),
                  criterion=nn.CrossEntropyLoss(), epochs=10, gcn_file="gcn_data", clf_file="clf_data",
-                 load_model=None, timeout=30):
+                 load_model=None, timeout=30, plot=False):
         if optim_args is None:
             optim_args = {'lr': 0.01, 'momentum': 0.9}
 
@@ -44,6 +44,7 @@ class ModelTrainer:
         if self.device == "cuda:0":
             self.gcn.cuda()
             self.clf.cuda()
+
         self.gcn_optimizer = optim.SGD(self.gcn.parameters(), **optim_args)
         self.clf_optimizer = optim.SGD(self.clf.parameters(), **optim_args)
 
@@ -69,20 +70,21 @@ class ModelTrainer:
             print("Epoch: %s" % epoch)
             train_loss, train_acc = self.training_loop(self.train_loader, self.train_data, training=True)
             val_loss, val_acc = self.training_loop(self.val_loader, self.val_data)
-            self.plot({'Train': train_loss, 'Validation': val_loss})
+            if self.plot:
+                self.plot({'Train': train_loss, 'Validation': val_loss})
             print(f"Training loss: {train_loss}")
             print(f"Validation loss: {val_loss}")
 
         test_loss, test_acc = self.training_loop(self.test_loader)
 
     def load_data(self, timeout=30):
-        dates = {'train_start': '01/01/2010', 'train_end': '31/12/2016',
-                 'val_start': '30/09/2016', 'val_end': '31/12/2017',
-                 'test_start': '30/09/2017', 'test_end': '31/12/2018'}
+        # dates = {'train_start': '01/01/2010', 'train_end': '31/12/2016',
+        #          'val_start': '30/09/2016', 'val_end': '31/12/2017',
+        #          'test_start': '30/09/2017', 'test_end': '31/12/2018'}
 
-        # dates = {'train_start': '01/01/2015', 'train_end': '31/12/2015',
-        #          'val_start': '01/12/2015', 'val_end': '01/02/2016',
-        #          'test_start': '30/09/2017', 'test_end': '31/12/2017'}
+        dates = {'train_start': '01/01/2015', 'train_end': '31/12/2015',
+                 'val_start': '01/12/2015', 'val_end': '01/02/2016',
+                 'test_start': '30/09/2017', 'test_end': '31/12/2017'}
 
         self.train_data = CompanyStockGraphDataset(self.features, device=self.device, start_date=dates['train_start'],
                                                    end_date=dates['train_end'], window_size=sequence_length,
@@ -154,6 +156,7 @@ class ModelTrainer:
             ax[i].plot(series, label=name)
         plt.show()
 
+
     def save_checkpoint(self, state, fn):
         torch.save(state, fn)
 
@@ -181,12 +184,13 @@ class ModelTrainer:
             else:
                 dataset.engine.close()
 
+
 class Args:
     def __init__(self):
         self.node_feat_dim = 2
-        self.layer_1_dim = 512
-        self.layer_2_dim = 512
-        self.fc_1_dim = 200
+        self.layer_1_dim = 200
+        self.layer_2_dim = 200
+        self.fc_1_dim = 100
         self.fc_2_dim = 3
         self.dropout = 0.5
 
