@@ -4,6 +4,7 @@ from torch import optim, nn
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 from sqlite3.dbapi2 import OperationalError
+import yaml
 
 from sklearn.metrics import accuracy_score, f1_score
 import numpy as np
@@ -11,7 +12,7 @@ import numpy as np
 from tqdm import tqdm
 import pathlib
 
-from src import MODEL_SAVE_DIR, logger
+from src import MODEL_SAVE_DIR, MODEL_ARGS
 from src.models.evolvegcn import EvolveGCN
 from src.models.models import NodePredictionModel
 from src.data.datasets import CompanyStockGraphDataset
@@ -186,13 +187,16 @@ class ModelTrainer:
 
 
 class Args:
-    def __init__(self):
-        self.node_feat_dim = 2
-        self.layer_1_dim = 200
-        self.layer_2_dim = 200
-        self.fc_1_dim = 100
-        self.fc_2_dim = 3
-        self.dropout = 0.5
+    def __init__(self, arg_file):
+        with open(arg_file, 'r') as f:
+            arg_dict = yaml.load(f)
+        self.__dict__.update(arg_dict)
+        # self.node_feat_dim = 2
+        # self.layer_1_dim = 200
+        # self.layer_2_dim = 200
+        # self.fc_1_dim = 100
+        # self.fc_2_dim = 3
+        # self.dropout = 0.5
 
 
 if __name__ == "__main__":
@@ -203,6 +207,8 @@ if __name__ == "__main__":
                         help="Choice of optimiser (currently 'adam' or 'sgd').")
     parser.add_argument('--epochs', '-e', dest="epochs", default=10, type=int, help="# of epochs to run for.")
     parser.add_argument('--load', '-l', dest="load_model", default=None, help="Filename for loaded model.")
+    parser.add_argument('--model-args', '-m', dest="model_args_file", default='evolve_model_1.yaml',
+                        help="YAML file containing arguments for the model.")
     parser.add_argument('--timeout', '-t', dest='timeout', default=30, type=int,
                         help="# of seconds before SQL raises error for blocked connection.")
     parsed, unknown = parser.parse_known_args()
@@ -224,8 +230,8 @@ if __name__ == "__main__":
 
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
     sequence_length = 90
-    predict_periods = 3 #TODO: it's broken @ any value other than 3
-    model_args = Args()
+    predict_periods = 3 # TODO: it's broken @ any value other than 3
+    model_args = Args((MODEL_ARGS / args.model_args_file))
 
     evolve_model = EvolveGCN(model_args, activation=torch.relu, skipfeats=False)
     clf_model = NodePredictionModel(model_args)

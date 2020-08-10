@@ -1,0 +1,8 @@
+# Model options
+node_feat_dim: 2
+layer_1_dim: 200
+layer_2_dim: 200
+fc_1_dim: 100
+fc_2_dim: 3
+dropout: 0.5
+

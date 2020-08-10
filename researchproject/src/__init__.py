@@ -31,6 +31,10 @@ FM_OUTPUT = Path(resource_filename(__name__, '../data/interim/fuzzy'))
 # Text file containing common terms in entity list for replacement
 FUZZY_STOP_FILE = Path(resource_filename(__name__, '../misc/company_stopwords.txt'))
 
+''' SEC EDGAR '''
+# Pickle containing last run file info
+EDG_SAVE = Path(resource_filename(__name__, '../misc/edgar.p'))
+
 ''' Queries '''
 QUERIES = Path(resource_filename(__name__, '../queries'))
 
@@ -72,3 +76,5 @@ FOR MODEL
 MODEL_SAVE_DIR = Path(resource_filename(__name__, '../misc/checkpoints'))
 if not MODEL_SAVE_DIR.exists():
     MODEL_SAVE_DIR.mkdir(parents=True, exist_ok=True)
+
+MODEL_ARGS = Path(resource_filename(__name__, '../yaml'))
