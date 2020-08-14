@@ -1,0 +1,1 @@
+SELECT MIN(":feature"), MAX(":feature") FROM tickerdata

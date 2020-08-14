@@ -1,19 +1,15 @@
-"""
-Copyright 2019 IBM
-"""
-
 import torch
 from torch.nn.parameter import Parameter
 import torch.nn as nn
 import math
 
 from src.models.utils import Namespace
-from src.models.models import NodePredictionModel
 
 
 class EvolveGCN(nn.Module):
     """
-    Implementation of the EvolveGCN model for learning on dynamically evolving graphs.
+    Adapted implementation of the EvolveGCN model for learning on dynamically evolving graphs which replaces the GRU
+    module for a temporal CNN.
 
     Original paper: https://arxiv.org/abs/1902.10191
     Original implementation: https://github.com/IBM/EvolveGCN
@@ -33,8 +29,8 @@ class EvolveGCN(nn.Module):
         # Adds a skip connection that concatenates together the node features and layer output as input features for the
         # next layer.
         self.skipfeats = skipfeats
-        self.GRCU_layers = []
-        self.clf = NodePredictionModel(args)
+        self.TCN_layers = []
+
 
         # Makes GRCU_layers: a list of the 3 GRCU layers for each GCN cell
         for i in range(1, len(features)):
@@ -45,7 +41,7 @@ class EvolveGCN(nn.Module):
             })
 
             grcu_i = GRCU(GRCU_args).to(self.device)
-            self.GRCU_layers.append(grcu_i)
+            self.TCN_layers.append(grcu_i)
 
             for k, v in grcu_i._parameters.items():
                 self.register_parameter(k, v)
@@ -59,14 +55,12 @@ class EvolveGCN(nn.Module):
         """
         node_features = X_list[-1]
 
-        H_list = X_list
         for unit in self.GRCU_layers:
-            H_list = unit(A_list, H_list, node_mask_list)
+            X_list = unit(A_list, X_list, node_mask_list)
 
-        out = H_list[-1]
+        out = X_list[-1]
         if self.skipfeats:
             out = torch.cat((out, node_features), dim=1)
-        out = self.clf(out)
         return out
 
 

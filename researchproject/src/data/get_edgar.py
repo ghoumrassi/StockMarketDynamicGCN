@@ -79,15 +79,36 @@ def parse_form_4(form, conn):
             time.sleep(10)
 
     soup = BeautifulSoup(req.content, 'lxml')
-    ticker = soup.find('issuertradingsymbol').text.strip()
-    owner_cik = soup.find('rptownercik').text.strip()
+    ticker_container = soup.find('issuertradingsymbol')
+    if not ticker_container:
+        time.sleep(2)
+        return None
+    ticker = ticker_container.text.strip()
+
+    owner_cik_container = soup.find('rptownercik')
+    if not owner_cik_container:
+        time.sleep(2)
+        return None
+    owner_cik = owner_cik_container.text.strip()
+
     nonderivative_transaction_container = soup.find_all('nonderivativetransaction')
     if not nonderivative_transaction_container:
         time.sleep(2)
         return None
     nonderivative_transaction = nonderivative_transaction_container[-1]
-    transaction_date = nonderivative_transaction.find('transactiondate').text.strip()
-    shares_after_transaction = nonderivative_transaction.find('sharesownedfollowingtransaction').text.strip()
+
+    transaction_date_container = nonderivative_transaction.find('transactiondate')
+    if not transaction_date_container:
+        time.sleep(2)
+        return None
+    transaction_date = transaction_date_container.text.strip()
+
+    shares_after_transaction_container = nonderivative_transaction.find('sharesownedfollowingtransaction')
+    if not shares_after_transaction_container:
+        time.sleep(2)
+        return None
+    shares_after_transaction = shares_after_transaction_container.text.strip()
+
     d = {'ticker': [ticker], 'owner_cik': [owner_cik], 'date': [transaction_date],
          'num_shares': [shares_after_transaction]}
     df = pd.DataFrame(d)
@@ -134,9 +155,9 @@ if __name__ == "__main__":
 
                         first_loop = False
     except Exception as e:
-        print(e)
         with open(EDG_SAVE, 'wb') as f:
             pickle.dump(store_year, f)
             pickle.dump(store_qtr, f)
             pickle.dump(store_index, f)
             pickle.dump(store_form, f)
+        raise Exception(e)

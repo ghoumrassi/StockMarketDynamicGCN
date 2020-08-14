@@ -1,60 +1,89 @@
 """ Environment for running models. """
 import torch
+torch.manual_seed(0)
+
 from torch import optim, nn
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 from sqlite3.dbapi2 import OperationalError
 import yaml
-
-from sklearn.metrics import accuracy_score, f1_score
+import time
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 import numpy as np
+np.random.seed(0)
 
 from tqdm import tqdm
 import pathlib
 
-from src import MODEL_SAVE_DIR, MODEL_ARGS
+from src import MODEL_SAVE_DIR, MODEL_ARGS, PG_CREDENTIALS
 from src.models.evolvegcn import EvolveGCN
-from src.models.models import NodePredictionModel
+from src.models.lstm import LSTMModel
 from src.data.datasets import CompanyStockGraphDataset
-
+from src.data.utils import create_connection_psql
 
 class ModelTrainer:
 
-    def __init__(self, gcn, clf, optimizer=optim.SGD, optim_args=None, features=('adjVolume',),
-                 criterion=nn.CrossEntropyLoss(), epochs=10, gcn_file="gcn_data", clf_file="clf_data",
-                 load_model=None, timeout=30, plot=False):
-        if optim_args is None:
-            optim_args = {'lr': 0.01, 'momentum': 0.9}
+    # def __init__(self, model, optimizer=optim.SGD, optim_args=None, features=('adjVolume',),
+    #              criterion=nn.CrossEntropyLoss(), epochs=10, model_file="gcn_data", clf_file="clf_data",
+    #              load_model=None, timeout=30, plot=False):
+    def __init__(self, args):
+        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
-        self.device = device
-        self.gcn = gcn
-        self.clf = clf
-        self.gcn_file = MODEL_SAVE_DIR / gcn_file
-        self.clf_file = MODEL_SAVE_DIR / clf_file
-        self.model_files = [self.gcn_file, self.clf_file]
+        if args.model == 'egcn':
+            self.model = EvolveGCN(args, activation=torch.relu, skipfeats=args.skipfeats)
+        elif args.model == 'lstm':
+            self.model = LSTMModel(args)
+        else:
+            raise NotImplementedError("Only 'egcn' and 'lstm' have been implemented so far.")
+
+        self.model_file = MODEL_SAVE_DIR / args.file
+
+        if args.optimizer == "sgd":
+            self.optimizer = optim.SGD(self.model.parameters(), **args.optim_args)
+        elif args.optimizer == "adam":
+            self.optimizer = optim.Adam(self.model.parameters(), **args.optim_args)
+        else:
+            raise NotImplementedError("Optimizer must be 'sgd' or 'adam'.")
+
         self.start_epoch = 0
-        self.timeout = timeout
+        self.timeout = args.timeout
 
-        if load_model:
+        if args.load_model:
             # TODO: Make checkpoint loading function
-            self.start_epoch = load_model.start_epoch
-            self.load_checkpoint(self.gcn, load_model.gcn_checkpoint)
-            self.load_checkpoint(self.clf, load_model.clf_checkpoint)
-            pass
+            self.start_epoch = args.load_model.start_epoch
+            self.load_checkpoint(self.model, args.load_model.gcn_checkpoint)
 
         if self.device == "cuda:0":
-            self.gcn.cuda()
-            self.clf.cuda()
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
+            self.model.cuda()
 
-        self.gcn_optimizer = optim.SGD(self.gcn.parameters(), **optim_args)
-        self.clf_optimizer = optim.SGD(self.clf.parameters(), **optim_args)
-
-        self.features = features
+        self.engine = create_connection_psql(PG_CREDENTIALS)
+        self.timestamp = time.time()
+        self.sequence_length = args.seq_length
+        self.predict_periods = args.predict_periods
+        self.features = args.features
         self.batch_size = None
-        self.criterion = criterion
-        self.epochs = epochs
+        self.criterion = nn.CrossEntropyLoss()
+        self.epochs = args.epochs
         self.current_epoch = None
         self.current_iteration = None
+        self.returns_threshold = args.returns_threshold
+        self.adj = args.adj
+        self.adj2 = args.adj2
+
+        if args.dataset == 'small':
+            self.dates = {
+                'train_start': '01/01/2015', 'train_end': '31/12/2015',
+                'val_start': '01/12/2015', 'val_end': '01/02/2016',
+                'test_start': '30/09/2017', 'test_end': '31/12/2017'}
+        elif args.dataset == 'large':
+            self.dates = {
+                'train_start': '01/01/2010', 'train_end': '31/12/2016',
+                'val_start': '30/09/2016', 'val_end': '31/12/2017',
+                'test_start': '30/09/2017', 'test_end': '31/12/2018'}
+        else:
+            raise NotImplementedError("Dataset must be 'small' or 'large'.")
 
         self.train_data = None
         self.val_data = None
@@ -69,94 +98,88 @@ class ModelTrainer:
         for epoch in range(self.start_epoch, self.epochs):
             self.current_epoch = epoch
             print("Epoch: %s" % epoch)
-            train_loss, train_acc = self.training_loop(self.train_loader, self.train_data, training=True)
-            val_loss, val_acc = self.training_loop(self.val_loader, self.val_data)
+            _, train_loss, train_acc = self.training_loop(self.train_loader, training=True)
+            _, val_loss, val_acc = self.training_loop(self.val_loader)
             if self.plot:
                 self.plot({'Train': train_loss, 'Validation': val_loss})
             print(f"Training loss: {train_loss}")
             print(f"Validation loss: {val_loss}")
 
-        test_loss, test_acc = self.training_loop(self.test_loader)
+        test_predictions, test_loss, test_acc = self.training_loop(self.test_loader)
 
     def load_data(self, timeout=30):
-        # dates = {'train_start': '01/01/2010', 'train_end': '31/12/2016',
-        #          'val_start': '30/09/2016', 'val_end': '31/12/2017',
-        #          'test_start': '30/09/2017', 'test_end': '31/12/2018'}
-
-        dates = {'train_start': '01/01/2015', 'train_end': '31/12/2015',
-                 'val_start': '01/12/2015', 'val_end': '01/02/2016',
-                 'test_start': '30/09/2017', 'test_end': '31/12/2017'}
-
-        self.train_data = CompanyStockGraphDataset(self.features, device=self.device, start_date=dates['train_start'],
-                                                   end_date=dates['train_end'], window_size=sequence_length,
-                                                   predict_periods=predict_periods, timeout=self.timeout)
-        self.val_data = CompanyStockGraphDataset(self.features, device=self.device, start_date=dates['val_start'],
-                                                 end_date=dates['val_end'], window_size=sequence_length,
-                                                 predict_periods=predict_periods, timeout=self.timeout)
-        self.test_data = CompanyStockGraphDataset(self.features, device=self.device, start_date=dates['test_start'],
-                                                  end_date=dates['test_end'], window_size=sequence_length,
-                                                  predict_periods=predict_periods, timeout=self.timeout)
+        self.train_data = CompanyStockGraphDataset(
+            self.features, device=self.device, start_date=self.dates['train_start'], end_date=self.dates['train_end'],
+            window_size=self.sequence_length, predict_periods=self.predict_periods, timeout=self.timeout,
+            returns_threshold=self.returns_threshold, adj=self.adj, adj2=self.adj2
+        )
+        self.val_data = CompanyStockGraphDataset(
+            self.features, device=self.device, start_date=self.dates['val_start'], end_date=self.dates['val_end'],
+            window_size=self.sequence_length, predict_periods=self.predict_periods, timeout=self.timeout,
+            returns_threshold=self.returns_threshold, adj=self.adj, adj2=self.adj2
+        )
+        self.test_data = CompanyStockGraphDataset(
+            self.features, device=self.device, start_date=self.dates['test_start'], end_date=self.dates['test_end'],
+            window_size=self.sequence_length, predict_periods=self.predict_periods, timeout=self.timeout,
+            returns_threshold=self.returns_threshold, adj=self.adj, adj2=self.adj2
+        )
 
         self.train_loader = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=False)
         self.val_loader = DataLoader(self.val_data, batch_size=self.batch_size, shuffle=False)
         self.test_loader = DataLoader(self.test_data, batch_size=self.batch_size, shuffle=False)
 
-    def training_loop(self, loader, dataset, training=False):
+    def training_loop(self, loader, training=False):
         running_loss = 0
         mean_loss_hist = []
         acc = []
         f1 = []
+        prec = []
+        rec = []
         with tqdm(loader) as pbar:
             for i, (*inputs, y_true) in enumerate(pbar):
                 self.current_iteration = i
-                self.gcn.zero_grad()
-                self.clf.zero_grad()
-                node_embs = self.gcn(*inputs)
+                self.model.zero_grad()
 
-                y_pred = self.clf(node_embs)
+                y_pred = self.model(*inputs)
 
                 loss = self.criterion(y_pred, y_true.long())
 
                 if training:
                     loss.backward()
-                    self.gcn_optimizer.step()
-                    self.clf_optimizer.step()
+                    self.optimizer.step()
 
                 acc.append(self.get_accuracy(y_true, y_pred))
-                f1.append(self.get_f1(y_true, y_pred))
+                # f1.append(self.get_score(f1_score, y_true, y_pred, average='macro'))
+                prec.append(self.get_score(precision_score, y_true, y_pred))
+                rec.append(self.get_score(recall_score, y_true, y_pred))
                 running_loss += loss.item()
                 mean_loss = running_loss / (i + 1)
                 mean_loss_hist.append(mean_loss)
 
                 pbar.set_description(
                     f"Mean loss: {round(mean_loss, 4)}, Mean acc: {round(np.mean(acc), 4)}, "
-                    f"Mean F1: {round(np.mean(f1), 4)}"
+                    f"Mean precision: {round(np.mean(prec), 4)}, Mean recall: {round(np.mean(rec), 4)}"
                 )
+                np_preds = y_pred.argmax(dim=1).numpy()
+                print("\n0: ", (np_preds == 0).sum())
+                print("1: ", (np_preds == 1).sum())
+                print("2: ", (np_preds == 2).sum())
             if training:
-                self.save_checkpoint(self.gcn, self.gcn_file)
-                self.save_checkpoint(self.clf, self.clf_file)
-        # except OperationalError:
-        #     dataset.close_connection()
-        #     dataset.open_connection()
-        #
-        # except Exception as e:
-        #     logger.log_model_error(e, self.model_files, self.current_epoch, self.current_iteration)
-        #     raise Exception("Error occured: check 'modelerror' table.")
+                self.save_checkpoint(self.model, self.model_file)
 
-        return mean_loss_hist, acc
+        return y_pred, mean_loss_hist, acc
 
-    def get_node_embs(self, n_embs, n_idx):
-        return torch.cat(
-            [n_embs[n_set] for n_set in n_idx],
-            dim=1
-        )
+    # def get_node_embs(self, n_embs, n_idx):
+    #     return torch.cat(
+    #         [n_embs[n_set] for n_set in n_idx],
+    #         dim=1
+    #     )
 
     def plot(self, series_dict, figure_aspect=(8,8)):
         fig, ax = plt.subplots(len(series_dict), figsize=figure_aspect)
         for i, (name, series) in enumerate(series_dict.items()):
             ax[i].plot(series, label=name)
         plt.show()
-
 
     def save_checkpoint(self, state, fn):
         torch.save(state, fn)
@@ -172,11 +195,11 @@ class ModelTrainer:
         else:
             return accuracy_score(true.cpu(), torch.argmax(predictions, dim=1).cpu())
 
-    def get_f1(self, true, predictions):
+    def get_score(self, score, true, predictions, **kwargs):
         if self.device == "cpu":
-            return f1_score(true, torch.argmax(predictions, dim=1), average="macro")
+            return score(true, torch.argmax(predictions, dim=1), **kwargs)
         else:
-            return f1_score(true.cpu(), torch.argmax(predictions, dim=1).cpu(), average="macro")
+            return score(true.cpu(), torch.argmax(predictions, dim=1).cpu(), **kwargs)
 
     def close(self):
         for dataset in (self.train_data, self.test_data, self.val_data):
@@ -203,48 +226,14 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--opt', '-o', dest="optimizer", default="adam",
-                        help="Choice of optimiser (currently 'adam' or 'sgd').")
-    parser.add_argument('--epochs', '-e', dest="epochs", default=10, type=int, help="# of epochs to run for.")
-    parser.add_argument('--load', '-l', dest="load_model", default=None, help="Filename for loaded model.")
-    parser.add_argument('--model-args', '-m', dest="model_args_file", default='evolve_model_1.yaml',
-                        help="YAML file containing arguments for the model.")
-    parser.add_argument('--timeout', '-t', dest='timeout', default=30, type=int,
-                        help="# of seconds before SQL raises error for blocked connection.")
-    parsed, unknown = parser.parse_known_args()
+    parser.add_argument('yaml', default=None, help="Filename for model arguments.")
+    parser.add_argument('--load', "-l", dest="load_model", default=None, help="Filename for saved model information.")
+    arg = parser.parse_args()
 
-    for arg in unknown:
-        if arg.startswith("--opt_"):
-            parser.add_argument(arg)
-    args = parser.parse_args()
+    args = Args((MODEL_ARGS / arg.yaml))
+    args.load_model = arg.load_model
 
-    optim_args = {}
-    for arg in args.__dict__:
-        if arg.startswith("opt_"):
-            # Potential to break if argument contains phrase "opt_"
-            try:
-                # Will cause issues if args not float...
-                optim_args[arg.replace("opt_", "")] = float(args.__dict__[arg])
-            except TypeError:
-                optim_args[arg.replace("opt_", "")] = args.__dict__[arg]
-
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    sequence_length = 90
-    predict_periods = 3 # TODO: it's broken @ any value other than 3
-    model_args = Args((MODEL_ARGS / args.model_args_file))
-
-    evolve_model = EvolveGCN(model_args, activation=torch.relu, skipfeats=False)
-    clf_model = NodePredictionModel(model_args)
-
-    if args.optimizer == "sgd":
-        optimizer = optim.SGD
-    elif args.optimizer == "adam":
-        optimizer = optim.Adam
-    else:
-        raise NotImplementedError("Optimizer must be 'sgd' or 'adam'.")
-
-    trainer = ModelTrainer(evolve_model, clf_model, optimizer=optimizer, optim_args=optim_args, epochs=args.epochs,
-                           load_model=args.load_model, timeout=args.timeout)
+    trainer = ModelTrainer(args)
     try:
         trainer.run()
     finally:

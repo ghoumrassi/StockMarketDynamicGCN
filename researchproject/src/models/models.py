@@ -16,7 +16,8 @@ class NodePredictionModel(nn.Module):
         relu_out = torch.relu(fc1_out)
         dr1_out = self.dropout(relu_out)
         fc2_out = self.fc2(dr1_out)
-        return fc2_out
+        out = torch.softmax(fc2_out, dim=1)
+        return out
 
 
 if __name__ == "__main__":

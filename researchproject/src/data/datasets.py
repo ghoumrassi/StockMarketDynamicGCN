@@ -14,13 +14,16 @@ class CompanyStockGraphDataset(Dataset):
     Creates dataset for use in D-GNN models.
     Each slice returns [X_t, A_t, y_t]
     """
-    def __init__(self, features, device="cpu", window_size=90, predict_periods=3, persistence=None,
-                 returns_threshold=0.03, start_date='01/01/2010', end_date=None, timeout=30, db='psql'):
+    def __init__(self, features, device="cpu", window_size=90, predict_periods=3, persistence=None, adj=True,
+                 adj2=False, returns_threshold=0.03, start_date='01/01/2010', end_date=None, timeout=30, db='psql'):
         self.features = features
+
         self.device = device
         self.window_size = window_size
         self.predict_periods = predict_periods
         self.persistence = persistence
+        self.adj_flag = adj
+        self.adj_flag_2 = adj2
         self.returns_threshold = returns_threshold
         self.start_date = dt.datetime.strptime(start_date, '%d/%m/%Y').timestamp()
         if end_date:
@@ -37,6 +40,13 @@ class CompanyStockGraphDataset(Dataset):
             self.engine = create_connection_psql(PG_CREDENTIALS)
         else:
             raise NotImplementedError("Must use modes 'sqlite' or 'psql' for db.")
+
+        # Make normalisers for feature columns
+        self.normalisers = []
+        for feature in ['returns'] + self.features:
+            resultset = self.engine.execute(f"""SELECT MIN("{feature}"), MAX("{feature}") FROM tickerdata""")
+            results = resultset.fetchall()
+            self.normalisers.append(make_normaliser(*results[0]))
 
         with open((QUERIES / self.db / 'article_pair_counts.q'), 'r') as f:
             self.pair_count_query = f.read()
@@ -91,12 +101,28 @@ class CompanyStockGraphDataset(Dataset):
         current_date = self.idx_date_map[idx + self.window_size]
         end_date = self.idx_date_map[idx + (self.window_size + self.predict_periods)]
 
-        A = self.get_A(idx, start_date, current_date)
         X = self.get_X(idx, start_date, current_date)
-        k = self.get_k()
+        for i in range(1, X.shape[2]):
+            X[:, :, i] = self.normalisers[i-1](X[:, :, i])
+
         y = self.get_y(current_date, end_date)
 
-        return A, X, k, y
+        if self.adj_flag:
+            k = self.get_k()
+            if self.adj_flag_2:
+                A = self.get_A(idx, start_date, current_date)
+                A_2 = self.get_A2(idx, start_date, current_date)
+                return A, A_2, X, k, y
+            else:
+                A = self.get_A(idx, start_date, current_date)
+                return A, X, k, y
+        else:
+            if self.adj_flag_2:
+                k = self.get_k()
+                A_2 = self.get_A2(idx, start_date, current_date)
+                return A_2, X, k, y
+            else:
+                return X, y
 
     def get_X(self, idx, start, current):
         X = torch.zeros(
@@ -178,6 +204,10 @@ class CompanyStockGraphDataset(Dataset):
             A[d_i, b_j, a_j] += count
         return A
 
+    def get_A2(self, idx, start, current):
+        # TODO: Implement SEC adj matrix
+        pass
+
     def get_k(self):
         k = torch.zeros((self.window_size,), device=self.device)
         k = k.fill_(len(self.ticker_idx_map))
@@ -189,6 +219,10 @@ class CompanyStockGraphDataset(Dataset):
     def open_connection(self):
         self.conn = create_connection(str(SQLITE_DB), timeout=self.timeout)
         self.c = self.conn.cursor()
+
+
+def make_normaliser(min, max):
+    return lambda x: (x - min) / (max - min)
 
 
 if __name__ == "__main__":
