@@ -19,6 +19,10 @@ TIINGO_DATA = Path(resource_filename(__name__, '../data/external/tiingo'))
 # API key for access to Tiingo API
 TIINGO_KEY = Path(resource_filename(__name__, '../misc/key.json'))
 
+''' Yahoo '''
+# Folder containing historic market cap data taken from Yahoo
+YAHOO_DATA = Path(resource_filename(__name__, '../data/external/yahoo'))
+
 ''' Wikidata '''
 # Folder containing SPARQL queries for Wikidata
 WD_QUERIES = Path(resource_filename(__name__, '../queries/SPARQL'))
