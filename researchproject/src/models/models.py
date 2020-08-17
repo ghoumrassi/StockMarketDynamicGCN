@@ -6,7 +6,8 @@ from src.models import evolvegcn
 class NodePredictionModel(nn.Module):
     def __init__(self, args):
         super().__init__()
-        self.fc1 = nn.Linear(in_features=args.layer_2_dim, out_features=args.fc_1_dim)
+        multiplier = 2 if args.skipfeats else 1
+        self.fc1 = nn.Linear(in_features=multiplier * args.layer_2_dim, out_features=args.fc_1_dim)
         self.fc2 = nn.Linear(in_features=args.fc_1_dim, out_features=args.fc_2_dim)
         self.dropout = nn.Dropout(args.dropout)
 
