@@ -75,8 +75,8 @@ class ModelTrainer:
         if args.dataset == 'small':
             self.dates = {
                 'train_start': '01/01/2011', 'train_end': '31/12/2011',
-                'val_start': '01/12/2011', 'val_end': '01/02/2012',
-                'test_start': '30/09/2013', 'test_end': '31/12/2013'}
+                'val_start': '01/10/2011', 'val_end': '01/04/2012',
+                'test_start': '01/01/2012', 'test_end': '31/12/2013'}
         elif args.dataset == 'large':
             self.dates = {
                 'train_start': '01/01/2010', 'train_end': '31/12/2016',
