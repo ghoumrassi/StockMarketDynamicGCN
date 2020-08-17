@@ -74,9 +74,9 @@ class ModelTrainer:
 
         if args.dataset == 'small':
             self.dates = {
-                'train_start': '01/01/2015', 'train_end': '31/12/2015',
-                'val_start': '01/12/2015', 'val_end': '01/02/2016',
-                'test_start': '30/09/2017', 'test_end': '31/12/2017'}
+                'train_start': '01/01/2011', 'train_end': '31/12/2011',
+                'val_start': '01/12/2011', 'val_end': '01/02/2012',
+                'test_start': '30/09/2013', 'test_end': '31/12/2013'}
         elif args.dataset == 'large':
             self.dates = {
                 'train_start': '01/01/2010', 'train_end': '31/12/2016',
@@ -150,8 +150,8 @@ class ModelTrainer:
 
                 acc.append(self.get_accuracy(y_true, y_pred))
                 # f1.append(self.get_score(f1_score, y_true, y_pred, average='macro'))
-                prec.append(self.get_score(precision_score, y_true, y_pred))
-                rec.append(self.get_score(recall_score, y_true, y_pred))
+                prec.append(self.get_score(precision_score, y_true, y_pred, average='micro'))
+                rec.append(self.get_score(recall_score, y_true, y_pred, average='micro'))
                 running_loss += loss.item()
                 mean_loss = running_loss / (i + 1)
                 mean_loss_hist.append(mean_loss)
