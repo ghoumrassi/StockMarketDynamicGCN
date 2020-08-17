@@ -164,9 +164,14 @@ class ModelTrainer:
                     np_preds = y_pred.argmax(dim=1).cpu().numpy()
                 else:
                     np_preds = y_pred.argmax(dim=1).numpy()
+                print("Preds:")
                 print("\n0: ", (np_preds == 0).sum())
                 print("1: ", (np_preds == 1).sum())
                 print("2: ", (np_preds == 2).sum())
+                print("True:")
+                print("\n0: ", (y_true.long() == 0).sum())
+                print("1: ", (y_true.long() == 1).sum())
+                print("2: ", (y_true.long() == 2).sum())
             if training:
                 self.save_checkpoint(self.model, self.model_file)
 

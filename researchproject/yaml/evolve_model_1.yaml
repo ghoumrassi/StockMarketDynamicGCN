@@ -15,7 +15,7 @@ dropout: 0.5
 optimizer: adam
 optim_args:
   lr: 0.001
-skipfeats: false
+skipfeats: true
 epochs: 10
 seq_length: 30
 predict_periods: 1
