@@ -4,7 +4,7 @@ adj: false
 adj2: true
 
 # Model options
-node_feat_dim: 2
+node_feat_dim: 4
 layer_1_dim: 512
 layer_2_dim: 512
 fc_1_dim: 256
@@ -15,7 +15,8 @@ dropout: 0.5
 optimizer: adam
 optim_args:
   lr: 0.001
-skipfeats: true
+batchsize: 20
+skipfeats: false
 epochs: 10
 seq_length: 30
 predict_periods: 1
@@ -23,7 +24,8 @@ returns_threshold: 0.01
 weight_decay: 0.1
 features:
   - adjVolume
-
+  - adjHigh
+  - adjLow
 
 # misc
 timeout: 10000

@@ -63,7 +63,7 @@ class ModelTrainer:
         self.sequence_length = args.seq_length
         self.predict_periods = args.predict_periods
         self.features = args.features
-        self.batch_size = None
+        self.batch_size = args.batchsize
         self.criterion = nn.CrossEntropyLoss()
         self.epochs = args.epochs
         self.current_epoch = None
@@ -140,18 +140,21 @@ class ModelTrainer:
                 self.current_iteration = i
                 self.model.zero_grad()
 
-                y_pred = self.model(*inputs)
+                y_preds = []
+                for b in range(self.batch_size):
+                    y_pred = self.model(*[inp[b] for inp in inputs])
+                    y_preds.append(y_pred.reshape(1, *y_pred.shape))
 
-                loss = self.criterion(y_pred, y_true.long())
+                loss = self.criterion(torch.cat(y_preds, 0).permute(0, 2, 1), y_true.long())
 
                 if training:
                     loss.backward()
                     self.optimizer.step()
 
-                acc.append(self.get_accuracy(y_true, y_pred))
-                # f1.append(self.get_score(f1_score, y_true, y_pred, average='macro'))
-                prec.append(self.get_score(precision_score, y_true, y_pred, average='micro'))
-                rec.append(self.get_score(recall_score, y_true, y_pred, average='micro'))
+                # acc.append(self.get_accuracy(y_true, y_pred))
+                # # f1.append(self.get_score(f1_score, y_true, y_pred, average='macro'))
+                # prec.append(self.get_score(precision_score, y_true, y_pred, average='micro'))
+                # rec.append(self.get_score(recall_score, y_true, y_pred, average='micro'))
                 running_loss += loss.item()
                 mean_loss = running_loss / (i + 1)
                 mean_loss_hist.append(mean_loss)
