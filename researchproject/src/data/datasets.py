@@ -4,6 +4,7 @@ import datetime as dt
 import numpy as np
 from sqlite3.dbapi2 import OperationalError
 from sqlalchemy import text
+from tqdm import tqdm
 
 from src import *
 from src.data.utils import create_connection, create_connection_psql
@@ -70,6 +71,9 @@ class CompanyStockGraphDataset(Dataset):
 
         with open((QUERIES / self.db / 'get_distinct_tickers.q'), 'r') as f:
             self.distinct_tickers_query = f.read()
+
+        with open((QUERIES / self.db / 'get_joint_ownership.q'), 'r') as f:
+            self.sec_joint_query = f.read()
 
         if self.db == 'sqlite':
             self.c.execute(self.distinct_dates_query, (self.start_date, self.end_date))
@@ -205,8 +209,44 @@ class CompanyStockGraphDataset(Dataset):
         return A
 
     def get_A2(self, idx, start, current):
-        # TODO: Implement SEC adj matrix
-        pass
+        A = torch.zeros(
+            (self.window_size, len(self.ticker_idx_map), len(self.ticker_idx_map)),
+            device=self.device
+        )
+        resultset = self.engine.execute(text(self.sec_joint_query),
+                                        startdate=start, enddate=current)
+        results = resultset.fetchall()
+        for date_start, date_end, a, b, weight in results:
+            # TODO: Extremely messy solution: please fix.
+            try:
+                a_j = self.ticker_idx_map[a]
+                b_j = self.ticker_idx_map[b]
+            except KeyError:
+                # print("Ticker doesn't exist.")
+                continue
+            new_start_array = self.date_array[self.date_array <= date_start]
+            if new_start_array.size != 0:
+                new_start_date = new_start_array.max()
+                d_i_s = self.date_idx_map[str(int(new_start_date))] - idx
+            else:
+                d_i_s = 0
+
+            new_end_array = self.date_array[self.date_array <= date_end]
+            if new_end_array.size != 0:
+                new_end_date = new_end_array.max()
+                d_i_e = self.date_idx_map[str(int(new_end_date))] - idx
+            else:
+                continue
+
+            if (d_i_e >= d_i_s) and (d_i_s >= 0) and (d_i_e <= self.window_size):
+                pass
+            else:
+                continue
+            A[d_i_s: d_i_e, a_j, b_j] += weight
+            A[d_i_s: d_i_e, b_j, a_j] += weight
+        # A = A + A.transpose(1, 2)
+        return A
+
 
     def get_k(self):
         k = torch.zeros((self.window_size,), device=self.device)
@@ -226,9 +266,9 @@ def make_normaliser(min, max):
 
 
 if __name__ == "__main__":
-    ds = CompanyStockGraphDataset(features=['adjVolume'])
-    for i in range(2500, 2510):
-        A, X, k, y = ds[i]
+    ds = CompanyStockGraphDataset(features=['adjVolume'], adj2=True)
+    for i in tqdm(range(2500, 2510)):
+        A, A_2, X, k, y = ds[i]
         print("Classes: ")
         print(f"-ve: {(y == 0).sum()}")
         print(f"neu: {(y == 1).sum()}")
