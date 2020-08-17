@@ -160,7 +160,10 @@ class ModelTrainer:
                     f"Mean loss: {round(mean_loss, 4)}, Mean acc: {round(np.mean(acc), 4)}, "
                     f"Mean precision: {round(np.mean(prec), 4)}, Mean recall: {round(np.mean(rec), 4)}"
                 )
-                np_preds = y_pred.argmax(dim=1).numpy()
+                if self.device == "cuda:0":
+                    np_preds = y_pred.argmax(dim=1).cpu().numpy()
+                else:
+                    np_preds = y_pred.argmax(dim=1).numpy()
                 print("\n0: ", (np_preds == 0).sum())
                 print("1: ", (np_preds == 1).sum())
                 print("2: ", (np_preds == 2).sum())
