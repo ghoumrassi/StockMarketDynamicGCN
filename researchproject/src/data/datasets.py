@@ -206,7 +206,9 @@ class CompanyStockGraphDataset(Dataset):
                 d_i = self.date_idx_map[str(int(new_date))] - idx
             A[d_i, a_j, b_j] += count
             A[d_i, b_j, a_j] += count
-        return self.normalise_adj(A)
+        for i in range(A.shape[0]):
+            A[i] = self.normalise_adj(A[i])
+        return A
 
     def get_A2(self, idx, start, current):
         A = torch.zeros(
@@ -251,8 +253,8 @@ class CompanyStockGraphDataset(Dataset):
 
     def normalise_adj(self, A):
         A_tilda = A + torch.eye(A.shape[0], device=self.device)
-        D_tilda = A_tilda.sum(dim=0).diag()
-        A_norm = (D_tilda ** (-1/2)) * A_tilda * (D_tilda ** (-1/2))
+        D_tilda = (A_tilda.sum(dim=0) ** (-1/2)).diag()
+        A_norm = D_tilda * A_tilda * D_tilda
         return A_norm
 
 
