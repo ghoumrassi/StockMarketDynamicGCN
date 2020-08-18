@@ -2,6 +2,8 @@
 model: egcn
 adj: false
 adj2: true
+k: true
+format: adj_matrix
 
 # Model options
 node_feat_dim: 4

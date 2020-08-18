@@ -18,6 +18,7 @@ import pathlib
 from src import MODEL_SAVE_DIR, MODEL_ARGS, PG_CREDENTIALS
 from src.models.evolvegcn import EvolveGCN
 from src.models.lstm import LSTMModel
+from src.models.dgcn import DGCN
 from src.data.datasets import CompanyStockGraphDataset
 from src.data.utils import create_connection_psql
 
@@ -33,6 +34,8 @@ class ModelTrainer:
             self.model = EvolveGCN(args, activation=torch.relu, skipfeats=args.skipfeats)
         elif args.model == 'lstm':
             self.model = LSTMModel(args)
+        elif args.model == 'dgcn':
+            self.model = DGCN(args)
         else:
             raise NotImplementedError("Only 'egcn' and 'lstm' have been implemented so far.")
 
@@ -71,6 +74,8 @@ class ModelTrainer:
         self.returns_threshold = args.returns_threshold
         self.adj = args.adj
         self.adj2 = args.adj2
+        self.k = args.k
+        self.format = args.format
 
         if args.dataset == 'small':
             self.dates = {
@@ -111,17 +116,17 @@ class ModelTrainer:
         self.train_data = CompanyStockGraphDataset(
             self.features, device=self.device, start_date=self.dates['train_start'], end_date=self.dates['train_end'],
             window_size=self.sequence_length, predict_periods=self.predict_periods, timeout=self.timeout,
-            returns_threshold=self.returns_threshold, adj=self.adj, adj2=self.adj2
+            returns_threshold=self.returns_threshold, adj=self.adj, adj2=self.adj2, k=self.k, format=self.format
         )
         self.val_data = CompanyStockGraphDataset(
             self.features, device=self.device, start_date=self.dates['val_start'], end_date=self.dates['val_end'],
             window_size=self.sequence_length, predict_periods=self.predict_periods, timeout=self.timeout,
-            returns_threshold=self.returns_threshold, adj=self.adj, adj2=self.adj2
+            returns_threshold=self.returns_threshold, adj=self.adj, adj2=self.adj2, k=self.k, format=self.format
         )
         self.test_data = CompanyStockGraphDataset(
             self.features, device=self.device, start_date=self.dates['test_start'], end_date=self.dates['test_end'],
             window_size=self.sequence_length, predict_periods=self.predict_periods, timeout=self.timeout,
-            returns_threshold=self.returns_threshold, adj=self.adj, adj2=self.adj2
+            returns_threshold=self.returns_threshold, adj=self.adj, adj2=self.adj2, k=self.k, format=self.format
         )
 
         self.train_loader = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=False)
@@ -140,13 +145,16 @@ class ModelTrainer:
                 self.current_iteration = i
                 self.model.zero_grad()
 
-                y_preds = []
-                for b in range(self.batch_size):
-                    y_pred = self.model(*[inp[b] for inp in inputs])
-                    y_preds.append(y_pred.reshape(1, *y_pred.shape))
+                if self.batch_size:
+                    y_preds = []
+                    for b in range(self.batch_size):
+                        y_pred = self.model(*[inp[b] for inp in inputs])
+                        y_preds.append(y_pred.reshape(1, *y_pred.shape))
 
-                loss = self.criterion(torch.cat(y_preds, 0).permute(0, 2, 1), y_true.long())
-
+                    loss = self.criterion(torch.cat(y_preds, 0).permute(0, 2, 1), y_true.long())
+                else:
+                    y_pred = self.model(*inputs)
+                    loss = self.criterion(y_pred, y_true.long())
                 if training:
                     loss.backward()
                     self.optimizer.step()
@@ -172,9 +180,9 @@ class ModelTrainer:
                 print("1: ", (np_preds == 1).sum())
                 print("2: ", (np_preds == 2).sum())
                 print("True:")
-                print("\n0: ", (y_true.long() == 0).sum())
-                print("1: ", (y_true.long() == 1).sum())
-                print("2: ", (y_true.long() == 2).sum())
+                print("\n0: ", (y_true.long() == 0).sum().item())
+                print("1: ", (y_true.long() == 1).sum().item())
+                print("2: ", (y_true.long() == 2).sum().item())
             if training:
                 self.save_checkpoint(self.model, self.model_file)
 

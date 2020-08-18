@@ -105,33 +105,28 @@ class CompanyStockGraphDataset(Dataset):
         current_date = self.idx_date_map[idx + self.window_size]
         end_date = self.idx_date_map[idx + (self.window_size + self.predict_periods)]
 
-        output = []
-
         X = self.get_X(idx, start_date, current_date)
-
         for i in range(1, X.shape[2]):
             X[:, :, i] = self.normalisers[i-1](X[:, :, i])
 
         y = self.get_y(current_date, end_date)
 
         if self.adj_flag:
-            A = self.get_A(idx, start_date, current_date)
-            output.append(A)
-
-        if self.adj_flag_2:
-            A_2 = self.get_A2(idx, start_date, current_date)
-            output.append(A_2)
-
-        output.append(X)
-
-        if self.k_flag:
             k = self.get_k()
-            output.append(k)
-
-        output.append(y)
-
-        return output
-
+            if self.adj_flag_2:
+                A = self.get_A(idx, start_date, current_date)
+                A_2 = self.get_A2(idx, start_date, current_date)
+                return A, A_2, X, k, y
+            else:
+                A = self.get_A(idx, start_date, current_date)
+                return A, X, k, y
+        else:
+            if self.adj_flag_2:
+                k = self.get_k()
+                A_2 = self.get_A2(idx, start_date, current_date)
+                return A_2, X, k, y
+            else:
+                return X, y
 
     def get_X(self, idx, start, current):
         X = torch.zeros(
@@ -211,25 +206,16 @@ class CompanyStockGraphDataset(Dataset):
                 d_i = self.date_idx_map[str(int(new_date))] - idx
             A[d_i, a_j, b_j] += count
             A[d_i, b_j, a_j] += count
-        for i in range(A.shape[0]):
-            A[i] = self.normalise_adj(A[i])
-        return A
+        return self.normalise_adj(A)
 
     def get_A2(self, idx, start, current):
-
+        A = torch.zeros(
+            (self.window_size, len(self.ticker_idx_map), len(self.ticker_idx_map)),
+            device=self.device
+        )
         resultset = self.engine.execute(text(self.sec_joint_query),
                                         startdate=start, enddate=current)
         results = resultset.fetchall()
-        if self.format == 'adj_matrix':
-            A = torch.zeros(
-                (self.window_size, len(self.ticker_idx_map), len(self.ticker_idx_map)),
-                device=self.device
-            )
-        elif self.format == 'edge_index':
-            edge_index = [nx.Graph() for _ in range(self.window_size)]
-        else:
-            raise NotImplementedError()
-
         for date_start, date_end, a, b, weight in results:
             # TODO: Extremely messy solution: please fix.
             try:
@@ -242,8 +228,6 @@ class CompanyStockGraphDataset(Dataset):
             if new_start_array.size != 0:
                 new_start_date = new_start_array.max()
                 d_i_s = self.date_idx_map[str(int(new_start_date))] - idx
-                if d_i_s < 0:
-                    d_i_s = 0
             else:
                 d_i_s = 0
 
@@ -254,34 +238,23 @@ class CompanyStockGraphDataset(Dataset):
             else:
                 continue
 
-            if (d_i_e >= d_i_s) and (d_i_e <= self.window_size):
+            if (d_i_e >= d_i_s) and (d_i_s >= 0) and (d_i_e <= self.window_size):
                 pass
             else:
                 continue
-            if self.format == 'adj_matrix':
-                A[d_i_s: d_i_e, a_j, b_j] += weight
-                A[d_i_s: d_i_e, b_j, a_j] += weight
-            elif self.format == 'edge_index':
-                for i in range(d_i_s, d_i_e):
-                    edge_index[i].add_edge(a_j, b_j, weight=weight)
-
+            A[d_i_s: d_i_e, a_j, b_j] += weight
+            A[d_i_s: d_i_e, b_j, a_j] += weight
         # A = A + A.transpose(1, 2)
-        if self.format == 'adj_matrix':
-            for i in range(A.shape[0]):
-                A[i] = self.normalise_adj(A[i])
-            return A
-        elif self.format == 'edge_index':
-            return edge_index
-        else:
-            raise NotImplementedError()
-
-
+        for i in range(A.shape[0]):
+            A[i] = self.normalise_adj(A[i])
+        return A
 
     def normalise_adj(self, A):
-        A_tilda = A + torch.eye(A.shape[0], device=self.device)
-        D_tilda = (A_tilda.sum(dim=0) ** (-1/2)).diag()
-        A_norm = D_tilda * A_tilda * D_tilda
+        A_tilda = A + torch.eye(A.shape[0])
+        D_tilda = A_tilda.sum(dim=0).diag()
+        A_norm = (D_tilda ** (-1/2)) * A_tilda * (D_tilda ** (-1/2))
         return A_norm
+
 
     def get_k(self):
         k = torch.zeros((self.window_size,), device=self.device)
@@ -301,7 +274,7 @@ def make_normaliser(min, max):
 
 
 if __name__ == "__main__":
-    ds = CompanyStockGraphDataset(features=['adjVolume'], adj=False, adj2=True, format='edge_index')
+    ds = CompanyStockGraphDataset(features=['adjVolume'], adj2=True)
     for i in tqdm(range(2500, 2510)):
         A, A_2, X, k, y = ds[i]
         print("Classes: ")

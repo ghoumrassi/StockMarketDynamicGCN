@@ -1,30 +1,36 @@
 # Model type
-model: lstm
+model: dgcn
 adj: false
-adj2: false
+adj2: true
 k: false
-format: adj_matrix
+format: edge_index
 
 # Model options
-lstm_input_size: 2
-layer_2_dim: 200
+node_feat_dim: 4
+layer_1_dim: 512
+layer_2_dim: 512
+lstm_dim: 256
+
 num_layers: 2
-fc_1_dim: 100
+fc_1_dim: 128
 fc_2_dim: 3
 dropout: 0.5
 
 # training args
-optimizer: sgd
+optimizer: adam
 optim_args:
   lr: 0.001
-  momentum: 0.9
+  weight_decay: 0.1
 skipfeats: false
 epochs: 10
 seq_length: 30
 predict_periods: 1
 returns_threshold: 0.01
+batchsize: null
 features:
   - adjVolume
+  - adjHigh
+  - adjLow
 
 
 # misc
