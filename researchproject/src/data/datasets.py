@@ -18,8 +18,8 @@ class CompanyStockGraphDataset(Dataset):
     Each slice returns [X_t, A_t, y_t]
     """
     def __init__(self, features, device="cpu", window_size=90, predict_periods=3, persistence=None, adj=True,
-                 adj2=False, k=True, returns_threshold=0.03, start_date='01/01/2010', end_date=None, timeout=30, db='psql',
-                 format='adj_matrix'):
+                 adj2=False, k=True, returns_threshold=0.03, start_date='01/01/2010', end_date=None, timeout=30,
+                 db='psql', format='adj_matrix'):
         self.features = features
 
         self.device = device

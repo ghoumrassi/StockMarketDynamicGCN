@@ -22,8 +22,8 @@ class DGCN(nn.Module):
         edge_weight_list = A[1]
         for i in range(len(X_list)):
             X = X_list[i]
-            edge_index = edge_index_list[i]
-            edge_weight = edge_weight_list[i]
+            edge_index = edge_index_list[i].t()
+            edge_weight = edge_weight_list[i].t()
             conv_1_out = self.conv1(X, edge_index, edge_weight=edge_weight)
             relu_1_out = F.relu(conv_1_out)
             drp_1_out = self.dropout(relu_1_out)
