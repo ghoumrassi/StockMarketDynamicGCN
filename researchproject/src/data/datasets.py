@@ -16,7 +16,8 @@ class CompanyStockGraphDataset(Dataset):
     Each slice returns [X_t, A_t, y_t]
     """
     def __init__(self, features, device="cpu", window_size=90, predict_periods=3, persistence=None, adj=True,
-                 adj2=False, returns_threshold=0.03, start_date='01/01/2010', end_date=None, timeout=30, db='psql'):
+                 adj2=False, returns_threshold=0.03, start_date='01/01/2010', end_date=None, timeout=30, db='psql',
+                 k=True):
         self.features = features
 
         self.device = device
@@ -25,6 +26,7 @@ class CompanyStockGraphDataset(Dataset):
         self.persistence = persistence
         self.adj_flag = adj
         self.adj_flag_2 = adj2
+        self.k_flag = k
         self.returns_threshold = returns_threshold
         self.start_date = dt.datetime.strptime(start_date, '%d/%m/%Y').timestamp()
         if end_date:
@@ -131,7 +133,6 @@ class CompanyStockGraphDataset(Dataset):
         output.append(y)
 
         return output
-
 
     def get_X(self, idx, start, current):
         X = torch.zeros(
