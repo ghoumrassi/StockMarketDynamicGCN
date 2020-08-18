@@ -250,7 +250,7 @@ class CompanyStockGraphDataset(Dataset):
         return A
 
     def normalise_adj(self, A):
-        A_tilda = A + torch.eye(A.shape[0])
+        A_tilda = A + torch.eye(A.shape[0], device=self.device)
         D_tilda = A_tilda.sum(dim=0).diag()
         A_norm = (D_tilda ** (-1/2)) * A_tilda * (D_tilda ** (-1/2))
         return A_norm
