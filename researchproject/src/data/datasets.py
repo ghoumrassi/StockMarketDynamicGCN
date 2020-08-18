@@ -5,6 +5,8 @@ import numpy as np
 from sqlite3.dbapi2 import OperationalError
 from sqlalchemy import text
 from tqdm import tqdm
+import networkx as nx
+import itertools
 
 from src import *
 from src.data.utils import create_connection, create_connection_psql
@@ -16,8 +18,8 @@ class CompanyStockGraphDataset(Dataset):
     Each slice returns [X_t, A_t, y_t]
     """
     def __init__(self, features, device="cpu", window_size=90, predict_periods=3, persistence=None, adj=True,
-                 adj2=False, returns_threshold=0.03, start_date='01/01/2010', end_date=None, timeout=30, db='psql',
-                 k=True, format='adj_matrix'):
+                 adj2=False, k=True, returns_threshold=0.03, start_date='01/01/2010', end_date=None, timeout=30, db='psql',
+                 format='adj_matrix'):
         self.features = features
 
         self.device = device
@@ -27,6 +29,7 @@ class CompanyStockGraphDataset(Dataset):
         self.adj_flag = adj
         self.adj_flag_2 = adj2
         self.k_flag = k
+        self.format = format
         self.returns_threshold = returns_threshold
         self.start_date = dt.datetime.strptime(start_date, '%d/%m/%Y').timestamp()
         if end_date:
@@ -134,6 +137,7 @@ class CompanyStockGraphDataset(Dataset):
 
         return output
 
+
     def get_X(self, idx, start, current):
         X = torch.zeros(
             (self.window_size, len(self.ticker_idx_map), len(self.features)+1),
@@ -227,7 +231,8 @@ class CompanyStockGraphDataset(Dataset):
                 device=self.device
             )
         elif self.format == 'edge_index':
-            edge_index = [nx.Graph() for _ in range(self.window_size)]
+            edge_index = [None for _ in range(self.window_size)]
+            edge_weight = [None for _ in range(self.window_size)]
         else:
             raise NotImplementedError()
 
@@ -264,7 +269,16 @@ class CompanyStockGraphDataset(Dataset):
                 A[d_i_s: d_i_e, b_j, a_j] += weight
             elif self.format == 'edge_index':
                 for i in range(d_i_s, d_i_e):
-                    edge_index[i].add_edge(a_j, b_j, weight=weight)
+                    if torch.is_tensor(edge_index[i]):
+                        edge_index[i] = torch.cat(
+                            (edge_index[i], torch.tensor([[a_j, b_j]]), torch.tensor([[b_j, a_j]])), dim=0
+                        )
+                        edge_weight[i] = torch.cat(
+                            (edge_weight[i], torch.tensor([weight, weight])), dim=0
+                        )
+                    else:
+                        edge_index[i] = torch.cat((torch.tensor([[a_j, b_j]]), torch.tensor([[b_j, a_j]])), dim=0)
+                        edge_weight[i] = torch.tensor([weight, weight])
 
         # A = A + A.transpose(1, 2)
         if self.format == 'adj_matrix':
@@ -275,8 +289,6 @@ class CompanyStockGraphDataset(Dataset):
             return edge_index
         else:
             raise NotImplementedError()
-
-
 
     def normalise_adj(self, A):
         A_tilda = A + torch.eye(A.shape[0], device=self.device)
