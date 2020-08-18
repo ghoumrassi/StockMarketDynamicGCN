@@ -17,7 +17,7 @@ class CompanyStockGraphDataset(Dataset):
     """
     def __init__(self, features, device="cpu", window_size=90, predict_periods=3, persistence=None, adj=True,
                  adj2=False, returns_threshold=0.03, start_date='01/01/2010', end_date=None, timeout=30, db='psql',
-                 k=True):
+                 k=True, format='adj_matrix'):
         self.features = features
 
         self.device = device
