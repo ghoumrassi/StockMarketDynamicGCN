@@ -4,6 +4,7 @@ torch.manual_seed(0)
 
 from torch import optim, nn
 from torch.utils.data import DataLoader
+from torch_geometric.data import DataLoader as GeoDataLoader
 import matplotlib.pyplot as plt
 from sqlite3.dbapi2 import OperationalError
 import yaml
@@ -13,13 +14,14 @@ import numpy as np
 np.random.seed(0)
 
 from tqdm import tqdm
-import pathlib
 
-from src import MODEL_SAVE_DIR, MODEL_ARGS, PG_CREDENTIALS
+
+from src import MODEL_SAVE_DIR, MODEL_ARGS, PG_CREDENTIALS, GEO_DATA
 from src.models.evolvegcn import EvolveGCN
 from src.models.lstm import LSTMModel
 from src.models.dgcn import DGCN
 from src.data.datasets import CompanyStockGraphDataset
+from src.data.datasets_geo import CompanyGraphDatasetGeo
 from src.data.utils import create_connection_psql
 
 class ModelTrainer:
@@ -112,26 +114,42 @@ class ModelTrainer:
 
         test_predictions, test_loss, test_acc = self.training_loop(self.test_loader)
 
-    def load_data(self, timeout=30):
-        self.train_data = CompanyStockGraphDataset(
-            self.features, device=self.device, start_date=self.dates['train_start'], end_date=self.dates['train_end'],
-            window_size=self.sequence_length, predict_periods=self.predict_periods, timeout=self.timeout,
-            returns_threshold=self.returns_threshold, adj=self.adj, adj2=self.adj2, k=self.k, format=self.format
-        )
-        self.val_data = CompanyStockGraphDataset(
-            self.features, device=self.device, start_date=self.dates['val_start'], end_date=self.dates['val_end'],
-            window_size=self.sequence_length, predict_periods=self.predict_periods, timeout=self.timeout,
-            returns_threshold=self.returns_threshold, adj=self.adj, adj2=self.adj2, k=self.k, format=self.format
-        )
-        self.test_data = CompanyStockGraphDataset(
-            self.features, device=self.device, start_date=self.dates['test_start'], end_date=self.dates['test_end'],
-            window_size=self.sequence_length, predict_periods=self.predict_periods, timeout=self.timeout,
-            returns_threshold=self.returns_threshold, adj=self.adj, adj2=self.adj2, k=self.k, format=self.format
-        )
+    def load_data(self, timeout=30, geo=False):
+        if geo:
+            self.train_data = CompanyGraphDatasetGeo(
+                GEO_DATA, self.features, start_date=self.dates['train_start'], end_date=self.dates['train_end']
+            )
+            self.val_data = CompanyGraphDatasetGeo(
+                GEO_DATA, self.features, start_date=self.dates['val_start'], end_date=self.dates['val_end']
+            )
+            self.test_data = CompanyGraphDatasetGeo(
+                GEO_DATA, self.features, start_date=self.dates['test_start'], end_date=self.dates['test_end']
+            )
 
-        self.train_loader = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=False)
-        self.val_loader = DataLoader(self.val_data, batch_size=self.batch_size, shuffle=False)
-        self.test_loader = DataLoader(self.test_data, batch_size=self.batch_size, shuffle=False)
+            self.train_loader = GeoDataLoader(self.train_data, )
+        else:
+            self.train_data = CompanyStockGraphDataset(
+                self.features, device=self.device, start_date=self.dates['train_start'],
+                end_date=self.dates['train_end'], window_size=self.sequence_length,
+                predict_periods=self.predict_periods, timeout=self.timeout, returns_threshold=self.returns_threshold,
+                adj=self.adj, adj2=self.adj2, k=self.k
+            )
+            self.val_data = CompanyStockGraphDataset(
+                self.features, device=self.device, start_date=self.dates['val_start'],
+                end_date=self.dates['val_end'], window_size=self.sequence_length,
+                predict_periods=self.predict_periods, timeout=self.timeout, returns_threshold=self.returns_threshold,
+                adj=self.adj, adj2=self.adj2, k=self.k
+            )
+            self.test_data = CompanyStockGraphDataset(
+                self.features, device=self.device, start_date=self.dates['test_start'],
+                end_date=self.dates['test_end'], window_size=self.sequence_length,
+                predict_periods=self.predict_periods, timeout=self.timeout, returns_threshold=self.returns_threshold,
+                adj=self.adj, adj2=self.adj2, k=self.k
+            )
+
+            self.train_loader = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=False)
+            self.val_loader = DataLoader(self.val_data, batch_size=self.batch_size, shuffle=False)
+            self.test_loader = DataLoader(self.test_data, batch_size=self.batch_size, shuffle=False)
 
     def training_loop(self, loader, training=False):
         running_loss = 0

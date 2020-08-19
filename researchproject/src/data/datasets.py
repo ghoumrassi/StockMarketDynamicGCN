@@ -7,6 +7,7 @@ from sqlalchemy import text
 from tqdm import tqdm
 import networkx as nx
 import itertools
+from torch_geometric.data import Data
 
 from src import *
 from src.data.utils import create_connection, create_connection_psql
@@ -19,7 +20,7 @@ class CompanyStockGraphDataset(Dataset):
     """
     def __init__(self, features, device="cpu", window_size=90, predict_periods=3, persistence=None, adj=True,
                  adj2=False, k=True, returns_threshold=0.03, start_date='01/01/2010', end_date=None, timeout=30,
-                 db='psql', format='adj_matrix'):
+                 db='psql'):
         self.features = features
 
         self.device = device
@@ -39,13 +40,7 @@ class CompanyStockGraphDataset(Dataset):
         self.timeout = timeout
         self.db = db
 
-        if self.db == 'sqlite':
-            self.conn = create_connection(str(SQLITE_DB), timeout=self.timeout)
-            self.c = self.conn.cursor()
-        elif self.db == 'psql':
-            self.engine = create_connection_psql(PG_CREDENTIALS)
-        else:
-            raise NotImplementedError("Must use modes 'sqlite' or 'psql' for db.")
+        self.engine = create_connection_psql(PG_CREDENTIALS)
 
         # Make normalisers for feature columns
         self.normalisers = []
@@ -54,46 +49,35 @@ class CompanyStockGraphDataset(Dataset):
             results = resultset.fetchall()
             self.normalisers.append(make_normaliser(*results[0]))
 
-        with open((QUERIES / self.db / 'article_pair_counts.q'), 'r') as f:
+        with open((QUERIES / 'psql' / 'article_pair_counts.q'), 'r') as f:
             self.pair_count_query = f.read()
 
-        with open((QUERIES / self.db / 'ticker_history.q'), 'r') as f:
+        with open((QUERIES / 'psql' / 'ticker_history.q'), 'r') as f:
             q = f.read()
             if self.features:
-                if self.db == 'sqlite':
-                    additional_col_str = ", " + ", ".join(features)
-                elif self.db == 'psql':
-                    additional_col_str = ', "' + '", "'.join(features) + '"'
+                additional_col_str = ', "' + '", "'.join(features) + '"'
             else:
                 additional_col_str = ""
             self.ticker_hist_query = q.format(additional_columns=additional_col_str)
 
-        with open((QUERIES / self.db / 'returns_future.q'), 'r') as f:
+        with open((QUERIES / 'psql' / 'returns_future.q'), 'r') as f:
             self.ticker_future_query = f.read()
 
-        with open((QUERIES / self.db / 'get_distinct_dates.q'), 'r') as f:
+        with open((QUERIES / 'psql' / 'get_distinct_dates.q'), 'r') as f:
             self.distinct_dates_query = f.read()
 
-        with open((QUERIES / self.db / 'get_distinct_tickers.q'), 'r') as f:
+        with open((QUERIES / 'psql' / 'get_distinct_tickers.q'), 'r') as f:
             self.distinct_tickers_query = f.read()
 
-        with open((QUERIES / self.db / 'get_joint_ownership.q'), 'r') as f:
+        with open((QUERIES / 'psql' / 'get_joint_ownership.q'), 'r') as f:
             self.sec_joint_query = f.read()
 
-        if self.db == 'sqlite':
-            self.c.execute(self.distinct_dates_query, (self.start_date, self.end_date))
-            dates_results = self.c.fetchall()
-            self.c.execute(self.distinct_tickers_query, (self.start_date, self.end_date))
-            tickers_results = self.c.fetchall()
-        elif self.db == 'psql':
-            resultset = self.engine.execute(text(self.distinct_dates_query),
-                                startdate=self.start_date, enddate=self.end_date)
-            dates_results = resultset.fetchall()
-            resultset = self.engine.execute(text(self.distinct_tickers_query),
-                                            startdate=self.start_date, enddate=self.end_date)
-            tickers_results = resultset.fetchall()
-        else:
-            raise NotImplementedError("Must use modes 'sqlite' or 'psql' for db.")
+        resultset = self.engine.execute(text(self.distinct_dates_query),
+                            startdate=self.start_date, enddate=self.end_date)
+        dates_results = resultset.fetchall()
+        resultset = self.engine.execute(text(self.distinct_tickers_query),
+                                        startdate=self.start_date, enddate=self.end_date)
+        tickers_results = resultset.fetchall()
 
         self.idx_date_map = {i: str(int(date[0])) for i, date in enumerate(dates_results)}
         self.date_idx_map = {str(int(date)): i for i, date in self.idx_date_map.items()}
@@ -142,15 +126,10 @@ class CompanyStockGraphDataset(Dataset):
         X = torch.zeros(
             (self.window_size, len(self.ticker_idx_map), len(self.features)+1),
             device=self.device)
-        if self.db == 'sqlite':
-            self.c.execute(self.ticker_hist_query, (start, current))
-            results = self.c.fetchall()
-        elif self.db == 'psql':
-            resultset = self.engine.execute(text(self.ticker_hist_query),
-                                            startdate=start, enddate=current)
-            results = resultset.fetchall()
-        else:
-            raise NotImplementedError()
+
+        resultset = self.engine.execute(text(self.ticker_hist_query),
+                                        startdate=start, enddate=current)
+        results = resultset.fetchall()
 
         for date, ticker, returns, *args in results:
             if not returns:
@@ -162,16 +141,9 @@ class CompanyStockGraphDataset(Dataset):
 
     def get_y(self, current, end):
         y = torch.zeros((len(self.ticker_idx_map),), device=self.device)
-
-        if self.db == 'sqlite':
-            self.c.execute(self.ticker_future_query, (current, end))
-            results = self.c.fetchall()
-        elif self.db == 'psql':
-            resultset = self.engine.execute(text(self.ticker_future_query),
-                                            startdate=current, enddate=end)
-            results = resultset.fetchall()
-        else:
-            raise NotImplementedError()
+        resultset = self.engine.execute(text(self.ticker_future_query),
+                                        startdate=current, enddate=end)
+        results = resultset.fetchall()
 
         for ticker, returns in results:
             if not returns:
@@ -190,16 +162,9 @@ class CompanyStockGraphDataset(Dataset):
             (self.window_size, len(self.ticker_idx_map), len(self.ticker_idx_map)),
             device=self.device
         )
-
-        if self.db == 'sqlite':
-            self.c.execute(self.pair_count_query, (start, current))
-            results = self.c.fetchall()
-        elif self.db == 'psql':
-            resultset = self.engine.execute(text(self.pair_count_query),
-                                            startdate=start, enddate=current)
-            results = resultset.fetchall()
-        else:
-            raise NotImplementedError()
+        resultset = self.engine.execute(text(self.pair_count_query),
+                                        startdate=start, enddate=current)
+        results = resultset.fetchall()
 
         for date, a, b, count in results:
             # TODO: Extremely messy solution: please fix.
@@ -225,16 +190,134 @@ class CompanyStockGraphDataset(Dataset):
         resultset = self.engine.execute(text(self.sec_joint_query),
                                         startdate=start, enddate=current)
         results = resultset.fetchall()
-        if self.format == 'adj_matrix':
-            A = torch.zeros(
-                (self.window_size, len(self.ticker_idx_map), len(self.ticker_idx_map)),
-                device=self.device
-            )
-        elif self.format == 'edge_index':
-            edge_index = [None for _ in range(self.window_size)]
-            edge_weight = [None for _ in range(self.window_size)]
-        else:
-            raise NotImplementedError()
+        A = torch.zeros(
+            (self.window_size, len(self.ticker_idx_map), len(self.ticker_idx_map)),
+            device=self.device
+        )
+        for date_start, date_end, a, b, weight in results:
+            # TODO: Extremely messy solution: please fix.
+            try:
+                a_j = self.ticker_idx_map[a]
+                b_j = self.ticker_idx_map[b]
+            except KeyError:
+                # print("Ticker doesn't exist.")
+                continue
+            new_start_array = self.date_array[self.date_array <= date_start]
+            if new_start_array.size != 0:
+                new_start_date = new_start_array.max()
+                d_i_s = self.date_idx_map[str(int(new_start_date))] - idx
+                if d_i_s < 0:
+                    d_i_s = 0
+            else:
+                d_i_s = 0
+
+            new_end_array = self.date_array[self.date_array <= date_end]
+            if new_end_array.size != 0:
+                new_end_date = new_end_array.max()
+                d_i_e = self.date_idx_map[str(int(new_end_date))] - idx
+            else:
+                continue
+
+            if (d_i_e >= d_i_s) and (d_i_e <= self.window_size):
+                pass
+            else:
+                continue
+
+            A[d_i_s: d_i_e, a_j, b_j] += weight
+            A[d_i_s: d_i_e, b_j, a_j] += weight
+
+        for i in range(A.shape[0]):
+            A[i] = self.normalise_adj(A[i])
+        return A
+
+    def normalise_adj(self, A):
+        A_tilda = A + torch.eye(A.shape[0], device=self.device)
+        D_tilda = (A_tilda.sum(dim=0) ** (-1/2)).diag()
+        A_norm = D_tilda * A_tilda * D_tilda
+        return A_norm
+
+    def get_k(self):
+        k = torch.zeros((self.window_size,), device=self.device)
+        k = k.fill_(len(self.ticker_idx_map))
+        return k
+
+    def close_connection(self):
+        self.conn.close()
+
+
+class CompanyStockGraphDatasetPTG(CompanyStockGraphDataset):
+    def __init__(self):
+        super().__init__()
+
+    def __getitem__(self, idx):
+        start_date = self.idx_date_map[idx]
+        current_date = self.idx_date_map[idx + self.window_size]
+        end_date = self.idx_date_map[idx + (self.window_size + self.predict_periods)]
+
+        output = []
+
+        X = self.get_X(idx, start_date, current_date)
+
+        for i in range(1, X.shape[2]):
+            X[:, :, i] = self.normalisers[i-1](X[:, :, i])
+
+        y = self.get_y(current_date, end_date)
+
+        if self.adj_flag:
+            A = self.get_A(idx, start_date, current_date)
+            output.append(A)
+
+        if self.adj_flag_2:
+            A_2 = self.get_A2(idx, start_date, current_date)
+            output.append(A_2)
+
+        output.append(X)
+
+        if self.k_flag:
+            k = self.get_k()
+            output.append(k)
+
+        output.append(y)
+
+        return output
+
+    def get_A(self, idx, start, current):
+        edge_indices = [None] * self.window_size
+        edge_weights = [None] * self.window_size
+        resultset = self.engine.execute(text(self.pair_count_query),
+                                        startdate=start, enddate=current)
+        results = resultset.fetchall()
+
+        for date, a, b, count in results:
+            # TODO: Extremely messy solution: please fix.
+            try:
+                a_j = self.ticker_idx_map[a]
+                b_j = self.ticker_idx_map[b]
+            except KeyError:
+                # print("Ticker doesn't exist.")
+                continue
+            try:
+                d_i = self.date_idx_map[str(int(date))] - idx
+            except KeyError:
+                new_date = self.date_array[self.date_array < date].max()
+                d_i = self.date_idx_map[str(int(new_date))] - idx
+            new_indices = torch.tensor([[a_j, b_j], [b_j, a_j]], device=self.device)
+            new_weights = torch.tensor([count, count], device=self.device)
+            if edge_indices[d_i]:
+                edge_indices[d_i] = torch.cat((edge_indices[d_i], new_indices), dim=1)
+                edge_weights[d_i] = torch.cat((edge_weights[d_i], new_weights))
+            else:
+                edge_indices[d_i] = new_indices
+                edge_weights[d_i] = new_weights
+
+        return (edge_indices, edge_weights)
+
+    def get_A2(self, idx, start, current):
+        edge_indices = [None] * self.window_size
+        edge_weights = [None] * self.window_size
+        resultset = self.engine.execute(text(self.sec_joint_query),
+                                        startdate=start, enddate=current)
+        results = resultset.fetchall()
 
         for date_start, date_end, a, b, weight in results:
             # TODO: Extremely messy solution: please fix.
@@ -264,50 +347,18 @@ class CompanyStockGraphDataset(Dataset):
                 pass
             else:
                 continue
-            if self.format == 'adj_matrix':
-                A[d_i_s: d_i_e, a_j, b_j] += weight
-                A[d_i_s: d_i_e, b_j, a_j] += weight
-            elif self.format == 'edge_index':
-                for i in range(d_i_s, d_i_e):
-                    if torch.is_tensor(edge_index[i]):
-                        edge_index[i] = torch.cat(
-                            (edge_index[i], torch.tensor([[a_j, b_j]]), torch.tensor([[b_j, a_j]])), dim=0
-                        )
-                        edge_weight[i] = torch.cat(
-                            (edge_weight[i], torch.tensor([weight, weight])), dim=0
-                        )
-                    else:
-                        edge_index[i] = torch.cat((torch.tensor([[a_j, b_j]]), torch.tensor([[b_j, a_j]])), dim=0)
-                        edge_weight[i] = torch.tensor([weight, weight])
 
-        # A = A + A.transpose(1, 2)
-        if self.format == 'adj_matrix':
-            for i in range(A.shape[0]):
-                A[i] = self.normalise_adj(A[i])
-            return A
-        elif self.format == 'edge_index':
-            return edge_index
-        else:
-            raise NotImplementedError()
+            new_indices = torch.tensor([[a_j, b_j], [b_j, a_j]], device=self.device)
+            new_weights = torch.tensor([weight, weight], device=self.device)
+            for i in range(d_i_s, d_i_e):
+                if edge_indices[i]:
+                    edge_indices[i] = torch.cat((edge_indices[i], new_indices), dim=1)
+                    edge_weights[i] = torch.cat((edge_weights[i], new_weights))
+                else:
+                    edge_indices[i] = new_indices
+                    edge_weights[i] = new_weights
 
-    def normalise_adj(self, A):
-        A_tilda = A + torch.eye(A.shape[0], device=self.device)
-        D_tilda = (A_tilda.sum(dim=0) ** (-1/2)).diag()
-        A_norm = D_tilda * A_tilda * D_tilda
-        return A_norm
-
-    def get_k(self):
-        k = torch.zeros((self.window_size,), device=self.device)
-        k = k.fill_(len(self.ticker_idx_map))
-        return k
-
-    def close_connection(self):
-        self.conn.close()
-
-    def open_connection(self):
-        self.conn = create_connection(str(SQLITE_DB), timeout=self.timeout)
-        self.c = self.conn.cursor()
-
+        return (edge_indices, edge_weights)
 
 def make_normaliser(min, max):
     return lambda x: (x - min) / (max - min)

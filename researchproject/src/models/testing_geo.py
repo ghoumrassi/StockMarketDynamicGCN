@@ -16,7 +16,7 @@ class DGCN(nn.Module):
 
         self.dropout = nn.Dropout(args.dropout)
 
-    def forward(self, A, X_list):
+    def forward(self, data):
         cell_state = None
         edge_index_list = A[0]
         edge_weight_list = A[1]
