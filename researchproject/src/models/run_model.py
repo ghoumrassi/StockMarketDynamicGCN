@@ -179,9 +179,11 @@ class ModelTrainer:
                     try:
                         y_true = data.y.view(batch_size, seq_len, -1)
                     except:
+                        print("Error")
                         print(slices['y'].shape)
                         print(data.y.shape)
                         print(data.edge_attr.shape)
+                        continue
                     y_true = y_true[:, -1, :].long()
                     y_pred = self.model((data, slices))
                     loss = self.criterion(y_pred.view(-1, 3), y_true.view(-1))
