@@ -27,7 +27,7 @@ class DGCN(nn.Module):
         out = self.conv2(out, data.edge_index, edge_weight=data.edge_attr[:, 0])
         out = F.relu(out)
         out = self.dropout(out)
-        out = out.view(-1, self.args.seq_length, out.shape[2])
+        out = out.view(-1, self.args.seq_length, self.args.layer_2_dim)
         out, _ = self.lstm(out)  # Figure this piece of the puzzle out and problem solved!
         out = out[:, -1, :].view(batch_size, -1, self.args.lstm_dim)
         out = self.dropout(out)
