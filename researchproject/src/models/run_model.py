@@ -172,11 +172,12 @@ class ModelTrainer:
                 self.current_iteration = i
                 self.model.zero_grad()
                 if self.geo:
-                    data, mask = inputs[0]
-                    batch_size = len(mask['x'])
+                    data, slices = inputs[0]
+                    batch_size, seq_len = slices['x'].shape
+                    seq_len -= 1
                     y_true = data.y.view(batch_size, self.args.seq_length, -1)
                     y_true = y_true[:, -1, :].long()
-                    y_pred = self.model((data, mask))
+                    y_pred = self.model((data, slices))
                     loss = self.criterion(y_pred.view(-1, 3), y_true.view(-1))
                 else:
                     if self.batch_size:
