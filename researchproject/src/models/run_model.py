@@ -122,15 +122,15 @@ class ModelTrainer:
         if self.geo:
             self.train_data = CompanyGraphDatasetGeo(
                 GEO_DATA, self.features, start_date=self.dates['train_start'], end_date=self.dates['train_end'],
-                device=self.device
+                device=self.device, rthreshold=self.returns_threshold
             )
             self.val_data = CompanyGraphDatasetGeo(
                 GEO_DATA, self.features, start_date=self.dates['val_start'], end_date=self.dates['val_end'],
-                device=self.device
+                device=self.device, rthreshold=self.returns_threshold
             )
             self.test_data = CompanyGraphDatasetGeo(
                 GEO_DATA, self.features, start_date=self.dates['test_start'], end_date=self.dates['test_end'],
-                device=self.device
+                device=self.device, rthreshold=self.returns_threshold
             )
 
             self.train_loader = GeoDataLoader(self.train_data, batch_size=self.batch_size, shuffle=False)
@@ -173,9 +173,10 @@ class ModelTrainer:
                 self.model.zero_grad()
                 if self.geo:
                     data = inputs[0]
-                    y_true = data[0].y
+                    y_true = data[0].y.view(self.args.batchsize, self.args.seq_length, -1)
+                    y_true = y_true[:, -1, :].long()
                     y_pred = self.model(data)
-                    loss = self.criterion(y_pred, y_true)
+                    loss = self.criterion(y_pred.view(-1, 3), y_true.view(-1))
                 else:
                     if self.batch_size:
                         y_preds = []

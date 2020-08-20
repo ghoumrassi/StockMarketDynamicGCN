@@ -15,7 +15,7 @@ from src.data.utils import create_connection_psql
 class CompanyGraphDatasetGeo(Dataset):
     # start date 2010-01-01
     def __init__(self, root, features=None, device='cpu', start_date='01/01/2010', end_date='31/12/2100',
-                 periods=1, sequence_length=30):
+                 periods=1, sequence_length=30, rthreshold=0.01):
         if features is None:
             features = ['adjVolume', 'adjHigh', 'adjLow']
         self.device = device
@@ -23,6 +23,7 @@ class CompanyGraphDatasetGeo(Dataset):
         self.features = features
         self.periods = periods
         self.sequence_length = sequence_length
+        self.rthreshold = rthreshold
         start_date = dt.datetime.strptime(start_date, '%d/%m/%Y').timestamp()
         end_date = dt.datetime.strptime(end_date, '%d/%m/%Y').timestamp()
         with open((QUERIES / 'psql' / 'get_distinct_dates.q'), 'r') as f:
@@ -84,6 +85,11 @@ class CompanyGraphDatasetGeo(Dataset):
         date = self.idx_date_map[i + self.sequence_length - 1] # maybeee?
         data_dir = Path(self.processed_dir)
         data = torch.load((data_dir / f'data_{str(int(date))}.pt'))
+        y = data[0].y.clone()
+        y[data[0].y < -self.rthreshold] = 0
+        y[(data[0].y >= -self.rthreshold) & (data[0].y <= self.rthreshold)] = 1
+        y[data[0].y > self.rthreshold] = 2
+        data[0].y = y
         return data
 
     def get_X(self, date):
