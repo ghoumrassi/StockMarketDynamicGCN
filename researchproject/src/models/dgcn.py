@@ -2,7 +2,6 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from torch_geometric.nn import GCNConv
-from torch_geometric.utils import to_dense_batch
 
 from src.models.models import NodePredictionModel
 
