@@ -103,7 +103,9 @@ class CompanyGraphDatasetGeo(Dataset):
     def get(self, i):
         date = self.idx_date_map[i + self.seq_len - 1] # maybeee?
         data_dir = Path(self.processed_dir)
-        data = torch.load((data_dir / f'data_{str(int(date))}.pt'))
+        data = torch.load(
+            (data_dir / f'data_{str(int(date))}_{str(self.seq_len)}_{str(self.periods)}_{self.feat_id}.pt')
+        )
         y = data[0].y.clone()
         y[data[0].y < -self.rthreshold] = 0
         y[(data[0].y >= -self.rthreshold) & (data[0].y <= self.rthreshold)] = 1
