@@ -1,9 +1,5 @@
 # Model type
 model: dgcn
-adj: false
-adj2: true
-k: false
-format: edge_index
 
 # Model options
 node_feat_dim: 4
@@ -26,12 +22,11 @@ epochs: 10
 seq_length: 30
 predict_periods: 1
 returns_threshold: 0.01
-batchsize: null
+batchsize: 10
 features:
   - adjVolume
   - adjHigh
   - adjLow
-
 
 # misc
 timeout: 10000

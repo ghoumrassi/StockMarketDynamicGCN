@@ -31,13 +31,16 @@ class ModelTrainer:
     #              load_model=None, timeout=30, plot=False):
     def __init__(self, args):
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
-
+        self.args = args
         if args.model == 'egcn':
             self.model = EvolveGCN(args, activation=torch.relu, skipfeats=args.skipfeats)
+            self.geo = False
         elif args.model == 'lstm':
             self.model = LSTMModel(args)
+            self.geo = False
         elif args.model == 'dgcn':
             self.model = DGCN(args)
+            self.geo = True
         else:
             raise NotImplementedError("Only 'egcn' and 'lstm' have been implemented so far.")
 
@@ -74,12 +77,13 @@ class ModelTrainer:
         self.current_epoch = None
         self.current_iteration = None
         self.returns_threshold = args.returns_threshold
-        self.adj = args.adj
-        self.adj2 = args.adj2
-        self.k = args.k
-        self.format = args.format
 
         if args.dataset == 'small':
+            self.dates = {
+                'train_start': '01/01/2010', 'train_end': '30/06/2010',
+                'val_start': '01/06/2010', 'val_end': '30/09/2010',
+                'test_start': '01/09/2010', 'test_end': '31/12/2010'}
+        elif args.dataset == 'medium':
             self.dates = {
                 'train_start': '01/01/2011', 'train_end': '31/12/2011',
                 'val_start': '01/10/2011', 'val_end': '01/04/2012',
@@ -90,7 +94,7 @@ class ModelTrainer:
                 'val_start': '30/09/2016', 'val_end': '31/12/2017',
                 'test_start': '30/09/2017', 'test_end': '31/12/2018'}
         else:
-            raise NotImplementedError("Dataset must be 'small' or 'large'.")
+            raise NotImplementedError("Dataset must be 'small', 'medium' or 'large'.")
 
         self.train_data = None
         self.val_data = None
@@ -114,37 +118,42 @@ class ModelTrainer:
 
         test_predictions, test_loss, test_acc = self.training_loop(self.test_loader)
 
-    def load_data(self, timeout=30, geo=False):
-        if geo:
+    def load_data(self, timeout=30):
+        if self.geo:
             self.train_data = CompanyGraphDatasetGeo(
-                GEO_DATA, self.features, start_date=self.dates['train_start'], end_date=self.dates['train_end']
+                GEO_DATA, self.features, start_date=self.dates['train_start'], end_date=self.dates['train_end'],
+                device=self.device
             )
             self.val_data = CompanyGraphDatasetGeo(
-                GEO_DATA, self.features, start_date=self.dates['val_start'], end_date=self.dates['val_end']
+                GEO_DATA, self.features, start_date=self.dates['val_start'], end_date=self.dates['val_end'],
+                device=self.device
             )
             self.test_data = CompanyGraphDatasetGeo(
-                GEO_DATA, self.features, start_date=self.dates['test_start'], end_date=self.dates['test_end']
+                GEO_DATA, self.features, start_date=self.dates['test_start'], end_date=self.dates['test_end'],
+                device=self.device
             )
 
-            self.train_loader = GeoDataLoader(self.train_data, )
+            self.train_loader = GeoDataLoader(self.train_data, batch_size=self.batch_size, shuffle=False)
+            self.val_loader = GeoDataLoader(self.val_data, batch_size=self.batch_size, shuffle=False)
+            self.test_loader = GeoDataLoader(self.test_data, batch_size=self.batch_size, shuffle=False)
         else:
             self.train_data = CompanyStockGraphDataset(
                 self.features, device=self.device, start_date=self.dates['train_start'],
                 end_date=self.dates['train_end'], window_size=self.sequence_length,
                 predict_periods=self.predict_periods, timeout=self.timeout, returns_threshold=self.returns_threshold,
-                adj=self.adj, adj2=self.adj2, k=self.k
+                adj=self.args.adj, adj2=self.args.adj2, k=self.args.k
             )
             self.val_data = CompanyStockGraphDataset(
                 self.features, device=self.device, start_date=self.dates['val_start'],
                 end_date=self.dates['val_end'], window_size=self.sequence_length,
                 predict_periods=self.predict_periods, timeout=self.timeout, returns_threshold=self.returns_threshold,
-                adj=self.adj, adj2=self.adj2, k=self.k
+                adj=self.args.adj, adj2=self.args.adj2, k=self.args.k
             )
             self.test_data = CompanyStockGraphDataset(
                 self.features, device=self.device, start_date=self.dates['test_start'],
                 end_date=self.dates['test_end'], window_size=self.sequence_length,
                 predict_periods=self.predict_periods, timeout=self.timeout, returns_threshold=self.returns_threshold,
-                adj=self.adj, adj2=self.adj2, k=self.k
+                adj=self.args.adj, adj2=self.args.adj2, k=self.args.k
             )
 
             self.train_loader = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=False)
@@ -159,20 +168,25 @@ class ModelTrainer:
         prec = []
         rec = []
         with tqdm(loader) as pbar:
-            for i, (*inputs, y_true) in enumerate(pbar):
+            for i, *inputs in enumerate(pbar):
                 self.current_iteration = i
                 self.model.zero_grad()
-
-                if self.batch_size:
-                    y_preds = []
-                    for b in range(self.batch_size):
-                        y_pred = self.model(*[inp[b] for inp in inputs])
-                        y_preds.append(y_pred.reshape(1, *y_pred.shape))
-
-                    loss = self.criterion(torch.cat(y_preds, 0).permute(0, 2, 1), y_true.long())
+                if self.geo:
+                    data = inputs[0]
+                    y_true = data[0].y
+                    y_pred = self.model(data)
+                    loss = self.criterion(y_pred, y_true)
                 else:
-                    y_pred = self.model(*inputs)
-                    loss = self.criterion(y_pred, y_true.long())
+                    if self.batch_size:
+                        y_preds = []
+                        for b in range(self.batch_size):
+                            y_pred = self.model(*[inp[b] for inp in inputs[:-1]])
+                            y_preds.append(y_pred.reshape(1, *y_pred.shape))
+
+                        loss = self.criterion(torch.cat(y_preds, 0).permute(0, 2, 1), y_true.long())
+                    else:
+                        y_pred = self.model(*inputs[:-1])
+                        loss = self.criterion(y_pred, y_true.long())
                 if training:
                     loss.backward()
                     self.optimizer.step()
@@ -240,10 +254,7 @@ class ModelTrainer:
 
     def close(self):
         for dataset in (self.train_data, self.test_data, self.val_data):
-            if dataset.db == 'sqlite':
-                dataset.conn.close()
-            else:
-                dataset.engine.close()
+            dataset.engine.close()
 
 
 class Args:

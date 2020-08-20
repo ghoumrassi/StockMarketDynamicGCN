@@ -6,6 +6,7 @@ import numpy as np
 from pathlib import Path
 from tqdm import tqdm
 import datetime as dt
+from itertools import product
 
 from src import QUERIES, PG_CREDENTIALS, GEO_DATA
 from src.data.utils import create_connection_psql
@@ -13,13 +14,15 @@ from src.data.utils import create_connection_psql
 
 class CompanyGraphDatasetGeo(Dataset):
     # start date 2010-01-01
-    def __init__(self, root, device='cpu', features=None, start_date='01/01/2010', end_date='31/12/2100'):
+    def __init__(self, root, features=None, device='cpu', start_date='01/01/2010', end_date='31/12/2100',
+                 periods=1, sequence_length=30):
         if features is None:
             features = ['adjVolume', 'adjHigh', 'adjLow']
         self.device = device
         self.engine = create_connection_psql(PG_CREDENTIALS)
         self.features = features
-        self.periods = 1
+        self.periods = periods
+        self.sequence_length = sequence_length
         start_date = dt.datetime.strptime(start_date, '%d/%m/%Y').timestamp()
         end_date = dt.datetime.strptime(end_date, '%d/%m/%Y').timestamp()
         with open((QUERIES / 'psql' / 'get_distinct_dates.q'), 'r') as f:
@@ -45,10 +48,11 @@ class CompanyGraphDatasetGeo(Dataset):
 
     @property
     def processed_file_names(self):
-        return [f'data_{str(int(date))}.pt' for date in self.date_array[:-self.periods]]
+        return [f'data_{str(int(date))}.pt' for date in self.date_array[self.sequence_length-1: -self.periods]]
 
     def process(self):
         data_dir = Path(self.processed_dir)
+        data_list = []
         for i, date in enumerate(tqdm(self.date_array, desc="Processing dataset...")):
             if i == 0:
                 prev_date = 0
@@ -59,15 +63,25 @@ class CompanyGraphDatasetGeo(Dataset):
             X = self.get_X(date)
             y = self.get_y(date)
             E, w = self.get_edges(prev_date, date)
-            data = Data(x=X, y=y, edge_index=E.long(), edge_attr=w)
-            torch.save(data, (data_dir / f'data_{str(int(date))}.pt'))
+            try:
+                data = Data(x=X, y=y, edge_index=E, edge_attr=w)
+            except ValueError:
+                data = Data(x=X, y=y, edge_index=E.long(), edge_attr=w)
+            data_list.append(data)
+            if len(data_list) < self.sequence_length:
+                continue
+            elif len(data_list) > self.sequence_length:
+                data_list.pop(0)
+
+            data, slices = self.collate(data_list)
+            torch.save((data, slices), (data_dir / f'data_{str(int(date))}.pt'))
         print("Done.")
 
     def len(self):
         return len(self.processed_file_names)
 
     def get(self, i):
-        date = self.idx_date_map[i]
+        date = self.idx_date_map[i + self.sequence_length - 1] # maybeee?
         data_dir = Path(self.processed_dir)
         data = torch.load((data_dir / f'data_{str(int(date))}.pt'))
         return data
@@ -109,7 +123,7 @@ class CompanyGraphDatasetGeo(Dataset):
         tot_len = len(results_1) + len(results_2)
         if tot_len == 0:
             return torch.empty(2, device=self.device), torch.empty(2, device=self.device)
-        E = torch.zeros((2, tot_len), device=self.device)
+        E = torch.zeros((2, tot_len), dtype=torch.long, device=self.device)
         W = torch.zeros((tot_len, 2), device=self.device)
         i = 0
         prev_edges = {}
@@ -163,6 +177,43 @@ class CompanyGraphDatasetGeo(Dataset):
         W = torch.cat((W, W.flip(dims=(1,))), dim=0)
 
         return E, W
+
+    @staticmethod
+    def collate(data_list):
+        r"""Collates a python list of data objects to the internal storage
+        format of :class:`torch_geometric.data.InMemoryDataset`."""
+        keys = data_list[0].keys
+        data = data_list[0].__class__()
+
+        for key in keys:
+            data[key] = []
+        slices = {key: [0] for key in keys}
+
+        for item, key in product(data_list, keys):
+            data[key].append(item[key])
+            if torch.is_tensor(item[key]):
+                s = slices[key][-1] + item[key].size(
+                    item.__cat_dim__(key, item[key]))
+            else:
+                s = slices[key][-1] + 1
+            slices[key].append(s)
+
+        if hasattr(data_list[0], '__num_nodes__'):
+            data.__num_nodes__ = []
+            for item in data_list:
+                data.__num_nodes__.append(item.num_nodes)
+
+        for key in keys:
+            item = data_list[0][key]
+            if torch.is_tensor(item):
+                data[key] = torch.cat(data[key],
+                                      dim=data.__cat_dim__(key, item))
+            elif isinstance(item, int) or isinstance(item, float):
+                data[key] = torch.tensor(data[key])
+
+            slices[key] = torch.tensor(slices[key], dtype=torch.long)
+
+        return data, slices
 
 
 if __name__ == "__main__":
