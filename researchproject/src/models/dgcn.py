@@ -22,10 +22,10 @@ class DGCN(nn.Module):
 
         batch_size, seq_len = slices['x'].shape
         seq_len -= 1
-        out = self.conv1(data.x, data.edge_index, edge_weight=data.edge_attr[:, 0])
+        out = self.conv1(data.x, data.edge_index, edge_weight=data.edge_attr[:, self.args.edgetype])
         out = F.relu(out)
         out = self.dropout(out)
-        out = self.conv2(out, data.edge_index, edge_weight=data.edge_attr[:, 0])
+        out = self.conv2(out, data.edge_index, edge_weight=data.edge_attr[:, self.args.edgetype])
         out = F.relu(out)
         out = self.dropout(out)
         out = out.view(-1, seq_len, self.args.layer_2_dim)
