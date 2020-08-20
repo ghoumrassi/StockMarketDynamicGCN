@@ -19,7 +19,7 @@ class DGCN(nn.Module):
 
     def forward(self, inputs):
         data, mask = inputs
-
+        batch_size = len(mask['x'])
         out = self.conv1(data.x, data.edge_index, edge_weight=data.edge_attr[:, 0])
         out = F.relu(out)
         out = self.dropout(out)
@@ -33,7 +33,7 @@ class DGCN(nn.Module):
         # new_shape = [batch_size * tickers, seq_len, emb_dim]
         new_shape = (-1, self.args.seq_length, self.args.layer_2_dim)
         out, _ = self.lstm(out.view(*new_shape))  # Figure this piece of the puzzle out and problem solved!
-        out = out[:, -1, :].view(self.args.batchsize, -1, self.args.lstm_dim)
+        out = out[:, -1, :].view(batch_size, -1, self.args.lstm_dim)
         out = self.dropout(out)
         out = self.fc1(out)
         out = torch.relu(out)
