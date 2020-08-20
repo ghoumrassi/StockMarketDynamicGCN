@@ -7,8 +7,9 @@ from pathlib import Path
 from tqdm import tqdm
 import datetime as dt
 from itertools import product
+import pickle
 
-from src import QUERIES, PG_CREDENTIALS, GEO_DATA
+from src import QUERIES, PG_CREDENTIALS, GEO_DATA, MISC
 from src.data.utils import create_connection_psql
 
 
@@ -17,12 +18,24 @@ class CompanyGraphDatasetGeo(Dataset):
     def __init__(self, root, features=None, device='cpu', start_date='01/01/2010', end_date='31/12/2100',
                  periods=1, sequence_length=30, rthreshold=0.01):
         if features is None:
-            features = ['adjVolume', 'adjHigh', 'adjLow']
+            features = ('adjVolume', 'adjHigh', 'adjLow')
+
+        geo_pkl = (MISC / 'dgeo.p')
+        if geo_pkl.exists():
+            with open(geo_pkl, 'rb') as f:
+                geo_feat_ids = pickle.load(f)
+        else:
+            geo_feat_ids = {}
+        if "".join(sorted(features)) not in geo_feat_ids:
+            geo_feat_ids["".join(sorted(features))] = len(geo_feat_ids)
+            with open(geo_pkl, 'wb') as f:
+                pickle.dump(geo_feat_ids, f)
+        self.feat_id = geo_feat_ids["".join(sorted(features))]
         self.device = device
         self.engine = create_connection_psql(PG_CREDENTIALS)
         self.features = features
         self.periods = periods
-        self.sequence_length = sequence_length
+        self.seq_len = sequence_length
         self.rthreshold = rthreshold
         start_date = dt.datetime.strptime(start_date, '%d/%m/%Y').timestamp()
         end_date = dt.datetime.strptime(end_date, '%d/%m/%Y').timestamp()
@@ -49,12 +62,18 @@ class CompanyGraphDatasetGeo(Dataset):
 
     @property
     def processed_file_names(self):
-        return [f'data_{str(int(date))}.pt' for date in self.date_array[self.sequence_length-1: -self.periods]]
+        proc_files = []
+        for date in self.date_array[self.seq_len - 1: -self.periods]:
+            proc_files.append(f'data_{str(int(date))}_{str(self.seq_len)}_{str(self.periods)}_{self.feat_id}.pt')
+        return proc_files
 
     def process(self):
         data_dir = Path(self.processed_dir)
         data_list = []
         for i, date in enumerate(tqdm(self.date_array, desc="Processing dataset...")):
+            fn = (data_dir / f'data_{str(int(date))}_{str(self.seq_len)}_{str(self.periods)}_{self.feat_id}.pt')
+            if fn.exists():
+                continue
             if i == 0:
                 prev_date = 0
             else:
@@ -69,20 +88,20 @@ class CompanyGraphDatasetGeo(Dataset):
             except ValueError:
                 data = Data(x=X, y=y, edge_index=E.long(), edge_attr=w)
             data_list.append(data)
-            if len(data_list) < self.sequence_length:
+            if len(data_list) < self.seq_len:
                 continue
-            elif len(data_list) > self.sequence_length:
+            elif len(data_list) > self.seq_len:
                 data_list.pop(0)
 
             data, slices = self.collate(data_list)
-            torch.save((data, slices), (data_dir / f'data_{str(int(date))}.pt'))
+            torch.save((data, slices), fn)
         print("Done.")
 
     def len(self):
         return len(self.processed_file_names)
 
     def get(self, i):
-        date = self.idx_date_map[i + self.sequence_length - 1] # maybeee?
+        date = self.idx_date_map[i + self.seq_len - 1] # maybeee?
         data_dir = Path(self.processed_dir)
         data = torch.load((data_dir / f'data_{str(int(date))}.pt'))
         y = data[0].y.clone()

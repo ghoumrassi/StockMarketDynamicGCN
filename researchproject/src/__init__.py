@@ -89,3 +89,10 @@ PYTORCH GEO
 GEO_DATA = Path(resource_filename(__name__, '../data/processed/geo'))
 if not GEO_DATA.exists():
     GEO_DATA.mkdir(parents=True, exist_ok=True)
+
+"""
+MISC
+"""
+MISC = Path(resource_filename(__name__, '../misc'))
+if not MISC.exists():
+    MISC.mkdir(parents=True, exist_ok=True)

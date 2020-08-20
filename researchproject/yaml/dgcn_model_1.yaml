@@ -3,26 +3,28 @@ model: dgcn
 
 # Model options
 node_feat_dim: 4
-layer_1_dim: 256
-layer_2_dim: 256
-lstm_dim: 256
+layer_1_dim: 64
+layer_2_dim: 64
+lstm_dim: 64
 
 num_layers: 2
-fc_1_dim: 128
+fc_1_dim: 64
 fc_2_dim: 3
-dropout: 0.5
+dropout: 0.2
 
 # training args
-optimizer: adam
+optimizer: sgd
 optim_args:
-  lr: 0.1
-  weight_decay: 0.1
+  lr: 0.01
+  momentum: 0.9
 skipfeats: false
 epochs: 10
+returns_threshold: 0.01
+batchsize: 10
+
+# dataset args
 seq_length: 30
 predict_periods: 1
-returns_threshold: 0.01
-batchsize: 2
 features:
   - adjVolume
   - adjHigh
