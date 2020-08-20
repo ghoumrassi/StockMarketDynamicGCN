@@ -3,12 +3,12 @@ model: dgcn
 
 # Model options
 node_feat_dim: 4
-layer_1_dim: 64
-layer_2_dim: 64
-lstm_dim: 64
+layer_1_dim: 16
+layer_2_dim: 16
+lstm_dim: 16
 
 num_layers: 2
-fc_1_dim: 64
+fc_1_dim: 16
 fc_2_dim: 3
 dropout: 0.2
 

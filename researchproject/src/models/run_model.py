@@ -81,6 +81,7 @@ class ModelTrainer:
         if args.dataset == 'small':
             self.dates = {
                 'train_start': '01/01/2010', 'train_end': '30/06/2010',
+                # 'train_start': '01/08/2016', 'train_end': '31/12/2016',
                 'val_start': '01/06/2010', 'val_end': '30/09/2010',
                 'test_start': '01/09/2010', 'test_end': '31/12/2010'}
         elif args.dataset == 'medium':
@@ -156,9 +157,9 @@ class ModelTrainer:
                 adj=self.args.adj, adj2=self.args.adj2, k=self.args.k
             )
 
-            self.train_loader = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=False)
-            self.val_loader = DataLoader(self.val_data, batch_size=self.batch_size, shuffle=False)
-            self.test_loader = DataLoader(self.test_data, batch_size=self.batch_size, shuffle=False)
+            self.train_loader = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=False, drop_last=True)
+            self.val_loader = DataLoader(self.val_data, batch_size=self.batch_size, shuffle=False, drop_last=True)
+            self.test_loader = DataLoader(self.test_data, batch_size=self.batch_size, shuffle=False, drop_last=True)
 
     def training_loop(self, loader, training=False):
         running_loss = 0
