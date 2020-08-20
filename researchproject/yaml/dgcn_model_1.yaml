@@ -22,7 +22,7 @@ epochs: 10
 seq_length: 30
 predict_periods: 1
 returns_threshold: 0.01
-batchsize: 50
+batchsize: 5
 features:
   - adjVolume
   - adjHigh

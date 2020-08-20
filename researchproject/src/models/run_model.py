@@ -174,7 +174,7 @@ class ModelTrainer:
                 if self.geo:
                     data, mask = inputs[0]
                     batch_size = len(mask['x'])
-                    y_true = data.y.view(self.args.batchsize, self.args.seq_length, -1)
+                    y_true = data.y.view(batch_size, self.args.seq_length, -1)
                     y_true = y_true[:, -1, :].long()
                     y_pred = self.model((data, mask))
                     loss = self.criterion(y_pred.view(-1, 3), y_true.view(-1))
@@ -189,9 +189,9 @@ class ModelTrainer:
                     else:
                         y_pred = self.model(*inputs[:-1])
                         loss = self.criterion(y_pred, y_true.long())
-                if training:
-                    loss.backward()
-                    self.optimizer.step()
+                # if training:
+                #     loss.backward()
+                #     self.optimizer.step()
 
                 # acc.append(self.get_accuracy(y_true, y_pred))
                 # # f1.append(self.get_score(f1_score, y_true, y_pred, average='macro'))
@@ -206,9 +206,9 @@ class ModelTrainer:
                     f"Mean precision: {round(np.mean(prec), 4)}, Mean recall: {round(np.mean(rec), 4)}"
                 )
                 if self.device == "cuda:0":
-                    np_preds = y_pred.argmax(dim=1).cpu().numpy()
+                    np_preds = y_pred.argmax(dim=2).cpu().numpy()
                 else:
-                    np_preds = y_pred.argmax(dim=1).numpy()
+                    np_preds = y_pred.argmax(dim=2).numpy()
                 print("Preds:")
                 print("\n0: ", (np_preds == 0).sum())
                 print("1: ", (np_preds == 1).sum())
