@@ -175,7 +175,11 @@ class ModelTrainer:
                     data, slices = inputs[0]
                     batch_size, seq_len = slices['x'].shape
                     seq_len -= 1
-                    y_true = data.y.view(batch_size, seq_len, -1)
+                    try:
+                        y_true = data.y.view(batch_size, seq_len, -1)
+                    except:
+                        print(slices['y'].shape)
+                        print(data.y.shape)
                     y_true = y_true[:, -1, :].long()
                     y_pred = self.model((data, slices))
                     loss = self.criterion(y_pred.view(-1, 3), y_true.view(-1))
