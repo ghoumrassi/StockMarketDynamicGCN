@@ -180,6 +180,7 @@ class ModelTrainer:
                     except:
                         print(slices['y'].shape)
                         print(data.y.shape)
+                        print(data.edge_attr.shape)
                     y_true = y_true[:, -1, :].long()
                     y_pred = self.model((data, slices))
                     loss = self.criterion(y_pred.view(-1, 3), y_true.view(-1))
