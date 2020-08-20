@@ -87,7 +87,7 @@ class ModelTrainer:
             self.dates = {
                 'train_start': '01/01/2011', 'train_end': '31/12/2011',
                 'val_start': '01/10/2011', 'val_end': '01/04/2012',
-                'test_start': '01/01/2012', 'test_end': '31/12/2013'}
+                'test_start': '01/01/2012', 'test_end': '31/12/2012'}
         elif args.dataset == 'large':
             self.dates = {
                 'train_start': '01/01/2010', 'train_end': '31/12/2016',
@@ -189,9 +189,9 @@ class ModelTrainer:
                     else:
                         y_pred = self.model(*inputs[:-1])
                         loss = self.criterion(y_pred, y_true.long())
-                # if training:
-                #     loss.backward()
-                #     self.optimizer.step()
+                if training:
+                    loss.backward()
+                    self.optimizer.step()
 
                 # acc.append(self.get_accuracy(y_true, y_pred))
                 # # f1.append(self.get_score(f1_score, y_true, y_pred, average='macro'))
