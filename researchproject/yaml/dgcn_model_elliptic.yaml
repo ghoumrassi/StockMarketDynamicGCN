@@ -2,14 +2,14 @@
 model: dgcn
 
 # Model options
-node_feat_dim: 4
+node_feat_dim: 166
 layer_1_dim: 16
 layer_2_dim: 16
 lstm_dim: 16
 
 num_layers: 2
 fc_1_dim: 16
-fc_2_dim: 3
+fc_2_dim: 2
 dropout: 0.2
 
 # training args
@@ -20,11 +20,11 @@ optim_args:
 skipfeats: false
 epochs: 10
 returns_threshold: 0.01
-batchsize: 10
-edgetype: 1
+batchsize: 2
+edgetype: 0
 
 # dataset args
-dataset: main
+dataset: elliptic
 seq_length: 30
 predict_periods: 1
 features:

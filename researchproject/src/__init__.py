@@ -96,3 +96,10 @@ MISC
 MISC = Path(resource_filename(__name__, '../misc'))
 if not MISC.exists():
     MISC.mkdir(parents=True, exist_ok=True)
+
+"""
+DARA
+"""
+DATA = Path(resource_filename(__name__, '../data'))
+if not DATA.exists():
+    DATA.mkdir(parents=True, exist_ok=True)

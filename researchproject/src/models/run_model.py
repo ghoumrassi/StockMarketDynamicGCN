@@ -22,6 +22,7 @@ from src.models.lstm import LSTMModel
 from src.models.dgcn import DGCN
 from src.data.datasets import CompanyStockGraphDataset
 from src.data.datasets_geo import CompanyGraphDatasetGeo
+from src.data.dataset_elliptic_temporal import EllipticTemporalDataset
 from src.data.utils import create_connection_psql
 
 class ModelTrainer:
@@ -78,18 +79,18 @@ class ModelTrainer:
         self.current_iteration = None
         self.returns_threshold = args.returns_threshold
 
-        if args.dataset == 'small':
+        if args.size == 'small':
             self.dates = {
                 'train_start': '01/01/2010', 'train_end': '30/06/2010',
                 # 'train_start': '01/08/2016', 'train_end': '31/12/2016',
                 'val_start': '01/06/2010', 'val_end': '30/09/2010',
                 'test_start': '01/09/2010', 'test_end': '31/12/2010'}
-        elif args.dataset == 'medium':
+        elif args.size == 'medium':
             self.dates = {
                 'train_start': '01/01/2011', 'train_end': '31/12/2011',
                 'val_start': '01/10/2011', 'val_end': '01/04/2012',
                 'test_start': '01/01/2012', 'test_end': '31/12/2012'}
-        elif args.dataset == 'large':
+        elif args.size == 'large':
             self.dates = {
                 'train_start': '01/01/2010', 'train_end': '31/12/2016',
                 'val_start': '30/09/2016', 'val_end': '31/12/2017',
@@ -120,7 +121,7 @@ class ModelTrainer:
         test_predictions, test_loss, test_acc = self.training_loop(self.test_loader)
 
     def load_data(self, timeout=30):
-        if self.geo:
+        if self.args.dataset == 'main':
             self.train_data = CompanyGraphDatasetGeo(
                 GEO_DATA, self.features, start_date=self.dates['train_start'], end_date=self.dates['train_end'],
                 device=self.device, rthreshold=self.returns_threshold
@@ -133,11 +134,17 @@ class ModelTrainer:
                 GEO_DATA, self.features, start_date=self.dates['test_start'], end_date=self.dates['test_end'],
                 device=self.device, rthreshold=self.returns_threshold
             )
-
             self.train_loader = GeoDataLoader(self.train_data, batch_size=self.batch_size, shuffle=False)
             self.val_loader = GeoDataLoader(self.val_data, batch_size=self.batch_size, shuffle=False)
             self.test_loader = GeoDataLoader(self.test_data, batch_size=self.batch_size, shuffle=False)
-        else:
+        elif self.args.dataset == 'elliptic':
+            self.train_data = EllipticTemporalDataset(device=self.device)
+            self.val_data = EllipticTemporalDataset(device=self.device)
+            self.test_data = EllipticTemporalDataset(device=self.device)
+            self.train_loader = GeoDataLoader(self.train_data, batch_size=self.batch_size, shuffle=False)
+            self.val_loader = GeoDataLoader(self.val_data, batch_size=self.batch_size, shuffle=False)
+            self.test_loader = GeoDataLoader(self.test_data, batch_size=self.batch_size, shuffle=False)
+        elif self.args.dataset == 'main' and not self.geo:
             self.train_data = CompanyStockGraphDataset(
                 self.features, device=self.device, start_date=self.dates['train_start'],
                 end_date=self.dates['train_end'], window_size=self.sequence_length,
@@ -156,10 +163,11 @@ class ModelTrainer:
                 predict_periods=self.predict_periods, timeout=self.timeout, returns_threshold=self.returns_threshold,
                 adj=self.args.adj, adj2=self.args.adj2, k=self.args.k
             )
-
             self.train_loader = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=False, drop_last=True)
             self.val_loader = DataLoader(self.val_data, batch_size=self.batch_size, shuffle=False, drop_last=True)
             self.test_loader = DataLoader(self.test_data, batch_size=self.batch_size, shuffle=False, drop_last=True)
+        else:
+            raise NotImplementedError("The dataset chosen has not been implemented.")
 
     def training_loop(self, loader, training=False):
         running_loss = 0
@@ -180,13 +188,10 @@ class ModelTrainer:
                         y_true = data.y.view(batch_size, seq_len, -1)
                     except:
                         print("Error")
-                        print(slices['y'].shape)
-                        print(data.y.shape)
-                        print(data.edge_attr.shape)
                         continue
                     y_true = y_true[:, -1, :].long()
                     y_pred = self.model((data, slices))
-                    loss = self.criterion(y_pred.view(-1, 3), y_true.view(-1))
+                    loss = self.criterion(y_pred.view(-1, self.args.fc_2_dim), y_true.view(-1))
                 else:
                     if self.batch_size:
                         y_preds = []

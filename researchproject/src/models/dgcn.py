@@ -19,9 +19,9 @@ class DGCN(nn.Module):
 
     def forward(self, inputs):
         data, slices = inputs
-
         batch_size, seq_len = slices['x'].shape
         seq_len -= 1
+
         out = self.conv1(data.x, data.edge_index, edge_weight=data.edge_attr[:, self.args.edgetype])
         out = F.relu(out)
         out = self.dropout(out)
@@ -29,7 +29,7 @@ class DGCN(nn.Module):
         out = F.relu(out)
         out = self.dropout(out)
         out = out.view(-1, seq_len, self.args.layer_2_dim)
-        out, _ = self.lstm(out)  # Figure this piece of the puzzle out and problem solved!
+        out, _ = self.lstm(out)
         out = out[:, -1, :].view(batch_size, -1, self.args.lstm_dim)
         out = self.dropout(out)
         out = self.fc1(out)
