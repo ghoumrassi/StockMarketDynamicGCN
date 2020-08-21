@@ -5,10 +5,12 @@ from src.data.utils import create_connection_psql
 from src import PG_CREDENTIALS
 
 
-def make_corr(window=100):
+def make_corr(window=30):
     seconds = window * 86400
     engine = create_connection_psql(PG_CREDENTIALS)
     df = pd.read_sql_query('SELECT date, ticker, returns FROM tickerdata', engine)
+    nasdaq100 = pd.read_sql_query('SELECT "Symbol" FROM nasdaq100', engine)['Symbol'].tolist()
+    df = df[df['ticker'].isin(nasdaq100)]
     df = df.pivot(index='date', columns='ticker')
     for date in tqdm(df.index.unique()):
         corr = df[(df.index <= date) & (df.index > date - seconds)].corr()

@@ -20,6 +20,14 @@ ON mappera."company" = subsa."altLabel"
 LEFT JOIN subsidiaries AS subsb
 ON mapperb."company" = subsb."altLabel"
 
+-- Restricts to NASDAQ100 companies
+INNER JOIN nasdaq100 as nd
+ON
+	subsa."ticker" = nd."Symbol"
+INNER JOIN nasdaq100 as nd2
+ON
+	subsb."ticker" = nd2."Symbol"
+
 WHERE
     subsa."exchangeLabel" = 'NASDAQ'
         AND

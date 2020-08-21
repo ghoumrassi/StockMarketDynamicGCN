@@ -147,14 +147,17 @@ class CompanyGraphDatasetGeo(Dataset):
         with open((self.query_dir / 'edges_sec.q'), 'r') as f:
             rs = self.engine.execute(text(f.read()), prevdate=int(prev_date), date=int(date))
         results_2 = rs.fetchall()
-        tot_len = len(results_1) + len(results_2)
+        with open((self.query_dir / 'edges_corr.q'), 'r') as f:
+            rs = self.engine.execute(text(f.read()), date=int(date))
+        results_3 = rs.fetchall()
+        tot_len = len(results_1) + len(results_2) + len(results_3)
         if tot_len == 0:
             return torch.empty(2, device=self.device), torch.empty(2, device=self.device)
         E = torch.zeros((2, tot_len), dtype=torch.long, device=self.device)
-        W = torch.zeros((tot_len, 2), device=self.device)
+        W = torch.zeros((tot_len, 3), device=self.device)
         i = 0
         prev_edges = {}
-        for a, b, count in results_1:
+        for a, b, weight in results_1:
             try:
                 ai = self.ticker_idx_map[a]
                 bi = self.ticker_idx_map[b]
@@ -164,7 +167,7 @@ class CompanyGraphDatasetGeo(Dataset):
                 [[ai, bi]],
                 device=self.device)
             new_weights = torch.tensor(
-                [count, 0],
+                [weight, 0, 0],
                 device=self.device)
 
             if str(ai) + " " + str(bi) in prev_edges:
@@ -185,7 +188,28 @@ class CompanyGraphDatasetGeo(Dataset):
                 [[ai, bi]],
                 device=self.device)
             new_weights = torch.tensor(
-                [0, weight],
+                [0, weight, 0],
+                device=self.device)
+
+            if str(ai) + " " + str(bi) in prev_edges:
+                idx = prev_edges[str(ai) + " " + str(bi)]
+                W[idx, :] += new_weights
+            else:
+                prev_edges[str(ai) + " " + str(bi)] = i
+                E[:, i] = new_edges
+                W[i, :] = new_weights
+                i += 1
+        for a, b, weight in results_3:
+            try:
+                ai = self.ticker_idx_map[a]
+                bi = self.ticker_idx_map[b]
+            except KeyError:
+                continue
+            new_edges = torch.tensor(
+                [[ai, bi]],
+                device=self.device)
+            new_weights = torch.tensor(
+                [0, 0, weight],
                 device=self.device)
 
             if str(ai) + " " + str(bi) in prev_edges:
@@ -197,11 +221,10 @@ class CompanyGraphDatasetGeo(Dataset):
                 W[i, :] = new_weights
                 i += 1
 
-        # Should work now, but will not if an additional edge attr is added
         E = E[:, : i]
         E = torch.cat((E, E.flip(dims=(0,))), dim=1)
         W = W[: i, :]
-        W = torch.cat((W, W.flip(dims=(1,))), dim=0)
+        W = torch.cat((W, W), dim=0)
 
         return E, W
 

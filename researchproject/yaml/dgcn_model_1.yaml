@@ -34,6 +34,6 @@ features:
 
 # misc
 timeout: 10000
-size: small
+size: large
 plot: false
 file: evolvegcn.out
