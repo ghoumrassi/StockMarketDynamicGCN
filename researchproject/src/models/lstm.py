@@ -9,7 +9,7 @@ class LSTMModel(nn.Module):
         self.lstm = nn.LSTM(args.lstm_input_size, args.layer_2_dim, num_layers=args.num_layers)
         self.clf = NodePredictionModel(args)
 
-    def forward(self, x):
-        lstm_out, _ = self.lstm(x)
+    def forward(self, data):
+        lstm_out, _ = self.lstm(data.x)
         clf_out = self.clf(lstm_out[-1])
         return clf_out

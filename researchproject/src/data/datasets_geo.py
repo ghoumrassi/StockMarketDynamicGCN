@@ -70,9 +70,16 @@ class CompanyGraphDatasetGeo(Dataset):
         data_dir = Path(self.processed_dir)
         data_list = []
         data_range = self.date_array[self.seq_len - 1: -self.periods]
+        fn_string = 'data_{}_{}_{}_{}.pt'
+        file_names = []
+        for date in data_range:
+            file_names.append(fn_string.format(str(int(date)), str(self.seq_len), str(self.periods), self.feat_id))
+        fn_exists = [(data_dir / fn).exists() for fn in file_names]
+        fn_can_skip = [all(fn_exists[i: i+self.seq_len]) for i in range(len(fn_exists))]
         for i, date in enumerate(tqdm(data_range, desc="Processing dataset...")):
-            fn = (data_dir / f'data_{str(int(date))}_{str(self.seq_len)}_{str(self.periods)}_{self.feat_id}.pt')
-            if fn.exists():
+            fn = (data_dir / file_names[i])
+            if fn_can_skip[i]:
+                data_list = []
                 continue
             if i == 0:
                 prev_date = 0

@@ -1,13 +1,16 @@
 # Model type
-model: lstm
+model: dgcn
 
 # Model options
-lstm_input_size: 4
-layer_2_dim: 200
+node_feat_dim: 4
+layer_1_dim: 16
+layer_2_dim: 16
+lstm_dim: 16
+
 num_layers: 2
-fc_1_dim: 100
+fc_1_dim: 16
 fc_2_dim: 3
-dropout: 0.5
+dropout: 0.2
 
 # training args
 optimizer: sgd
