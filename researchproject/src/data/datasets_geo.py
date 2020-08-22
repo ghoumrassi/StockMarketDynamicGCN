@@ -14,7 +14,7 @@ from src.data.utils import create_connection_psql
 
 
 class CompanyGraphDatasetGeo(Dataset):
-    # start date 2010-01-01
+    # data is loaded from 1/1/2009 to present
     def __init__(self, root, features=None, device='cpu', start_date='01/01/2010', end_date='31/12/2100',
                  periods=1, sequence_length=30, rthreshold=0.01):
         if features is None:
@@ -42,18 +42,17 @@ class CompanyGraphDatasetGeo(Dataset):
         with open((QUERIES / 'psql' / 'get_distinct_dates.q'), 'r') as f:
             self.distinct_dates_query = f.read()
             resultset = self.engine.execute(text(self.distinct_dates_query),
-                                            startdate=start_date, enddate=end_date)
+                                            startdate=1230768000, enddate=9e20)
             dates_results = resultset.fetchall()
 
         with open((QUERIES / 'psql' / 'get_distinct_tickers.q'), 'r') as f:
             self.distinct_tickers_query = f.read()
             resultset = self.engine.execute(text(self.distinct_tickers_query),
-                                            startdate=start_date, enddate=end_date)
+                                            startdate=1230768000, enddate=9e20)
             tickers_results = resultset.fetchall()
 
-        self.idx_date_map = {i: str(int(date[0])) for i, date in enumerate(dates_results)}
-        self.date_idx_map = {str(int(date)): i for i, date in self.idx_date_map.items()}
-        self.date_array = np.array([int(date) for date in self.date_idx_map.keys()])
+        self.date_array = np.array([int(date[0]) for date in dates_results])
+        self.date_array_restricted = self.date_array[(self.date_array > start_date) & (self.date_array <= end_date)]
 
         self.idx_ticker_map = {i: ticker[0] for i, ticker in enumerate(tickers_results)}
         self.ticker_idx_map = {ticker: i for i, ticker in self.idx_ticker_map.items()}
@@ -70,14 +69,15 @@ class CompanyGraphDatasetGeo(Dataset):
     def process(self):
         data_dir = Path(self.processed_dir)
         data_list = []
-        for i, date in enumerate(tqdm(self.date_array, desc="Processing dataset...")):
+        data_range = self.date_array[self.seq_len - 1: -self.periods]
+        for i, date in enumerate(tqdm(data_range, desc="Processing dataset...")):
             fn = (data_dir / f'data_{str(int(date))}_{str(self.seq_len)}_{str(self.periods)}_{self.feat_id}.pt')
             if fn.exists():
                 continue
             if i == 0:
                 prev_date = 0
             else:
-                prev_date = self.idx_date_map[i - 1]
+                prev_date = self.date_array[i - 1]
             if i >= len(self.date_array) - self.periods:
                 continue
             X = self.get_X(date)
@@ -101,7 +101,7 @@ class CompanyGraphDatasetGeo(Dataset):
         return len(self.processed_file_names)
 
     def get(self, i):
-        date = self.idx_date_map[i + self.seq_len - 1] # maybeee?
+        date = self.date_array_restricted[i] # maybeee?
         data_dir = Path(self.processed_dir)
         data = torch.load(
             (data_dir / f'data_{str(int(date))}_{str(self.seq_len)}_{str(self.periods)}_{self.feat_id}.pt')
