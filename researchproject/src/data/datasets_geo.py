@@ -1,5 +1,5 @@
 import torch
-from torch_geometric.data import Dataset, Data
+from torch_geometric.data import Dataset, Data, Batch
 from torch_geometric.utils.undirected import to_undirected, is_undirected
 from sqlalchemy import text
 import numpy as np
@@ -99,9 +99,8 @@ class CompanyGraphDatasetGeo(Dataset):
                 continue
             elif len(data_list) > self.seq_len:
                 data_list.pop(0)
-
-            data, slices = self.collate(data_list)
-            torch.save((data, slices), fn)
+            batch = Batch.from_data_list(data_list)
+            torch.save(batch, fn)
         print("Done.")
 
     def len(self):
@@ -113,11 +112,13 @@ class CompanyGraphDatasetGeo(Dataset):
         data = torch.load(
             (data_dir / f'data_{str(int(date))}_{str(self.seq_len)}_{str(self.periods)}_{self.feat_id}.pt')
         )
-        y = data[0].y.clone()
-        y[data[0].y < -self.rthreshold] = 0
-        y[(data[0].y >= -self.rthreshold) & (data[0].y <= self.rthreshold)] = 1
-        y[data[0].y > self.rthreshold] = 2
-        data[0].y = y
+        y = data.y.clone()
+        y[data.y < -self.rthreshold] = 0
+        y[(data.y >= -self.rthreshold) & (data.y <= self.rthreshold)] = 1
+        y[data.y > self.rthreshold] = 2
+        data.y = y
+        data.seq = data.batch
+        del data.batch
         return data
 
     def get_X(self, date):

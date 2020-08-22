@@ -20,16 +20,14 @@ from src import MODEL_SAVE_DIR, MODEL_ARGS, PG_CREDENTIALS, GEO_DATA
 from src.models.evolvegcn import EvolveGCN
 from src.models.lstm import LSTMModel
 from src.models.dgcn import DGCN
+from src.models.tgn import TGN1
 from src.data.datasets import CompanyStockGraphDataset
 from src.data.datasets_geo import CompanyGraphDatasetGeo
 from src.data.dataset_elliptic_temporal import EllipticTemporalDataset
 from src.data.utils import create_connection_psql
 
-class ModelTrainer:
 
-    # def __init__(self, model, optimizer=optim.SGD, optim_args=None, features=('adjVolume',),
-    #              criterion=nn.CrossEntropyLoss(), epochs=10, model_file="gcn_data", clf_file="clf_data",
-    #              load_model=None, timeout=30, plot=False):
+class ModelTrainer:
     def __init__(self, args):
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.args = args
@@ -41,6 +39,9 @@ class ModelTrainer:
             self.geo = False
         elif args.model == 'dgcn':
             self.model = DGCN(args)
+            self.geo = True
+        elif args.model == 'tgn':
+            self.model = TGN1(args)
             self.geo = True
         else:
             raise NotImplementedError("Only 'egcn' and 'lstm' have been implemented so far.")
@@ -81,8 +82,8 @@ class ModelTrainer:
 
         if args.size == 'small':
             self.dates = {
-                'train_start': '01/01/2010', 'train_end': '30/06/2010',
-                # 'train_start': '01/08/2016', 'train_end': '31/12/2016',
+                # 'train_start': '01/01/2010', 'train_end': '30/06/2010',
+                'train_start': '01/04/2009', 'train_end': '01/10/2009',
                 'val_start': '01/06/2010', 'val_end': '30/09/2010',
                 'test_start': '01/09/2010', 'test_end': '31/12/2010'}
         elif args.size == 'medium':
@@ -126,17 +127,17 @@ class ModelTrainer:
                 GEO_DATA, self.features, start_date=self.dates['train_start'], end_date=self.dates['train_end'],
                 device=self.device, rthreshold=self.returns_threshold
             )
-            self.val_data = CompanyGraphDatasetGeo(
-                GEO_DATA, self.features, start_date=self.dates['val_start'], end_date=self.dates['val_end'],
-                device=self.device, rthreshold=self.returns_threshold
-            )
-            self.test_data = CompanyGraphDatasetGeo(
-                GEO_DATA, self.features, start_date=self.dates['test_start'], end_date=self.dates['test_end'],
-                device=self.device, rthreshold=self.returns_threshold
-            )
+            # self.val_data = CompanyGraphDatasetGeo(
+            #     GEO_DATA, self.features, start_date=self.dates['val_start'], end_date=self.dates['val_end'],
+            #     device=self.device, rthreshold=self.returns_threshold
+            # )
+            # self.test_data = CompanyGraphDatasetGeo(
+            #     GEO_DATA, self.features, start_date=self.dates['test_start'], end_date=self.dates['test_end'],
+            #     device=self.device, rthreshold=self.returns_threshold
+            # )
             self.train_loader = GeoDataLoader(self.train_data, batch_size=self.batch_size, shuffle=False)
-            self.val_loader = GeoDataLoader(self.val_data, batch_size=self.batch_size, shuffle=False)
-            self.test_loader = GeoDataLoader(self.test_data, batch_size=self.batch_size, shuffle=False)
+            # self.val_loader = GeoDataLoader(self.val_data, batch_size=self.batch_size, shuffle=False)
+            # self.test_loader = GeoDataLoader(self.test_data, batch_size=self.batch_size, shuffle=False)
         elif self.args.dataset == 'elliptic':
             self.train_data = EllipticTemporalDataset(device=self.device)
             self.val_data = EllipticTemporalDataset(device=self.device)
@@ -181,16 +182,14 @@ class ModelTrainer:
                 self.current_iteration = i
                 self.model.zero_grad()
                 if self.geo:
-                    data, slices = inputs[0]
-                    batch_size, seq_len = slices['x'].shape
-                    seq_len -= 1
+                    data = inputs[0]
                     try:
-                        y_true = data.y.view(batch_size, seq_len, -1)
+                        y_true = data.y.view(self.batch_size, self.sequence_length, -1)
                     except:
                         print("Error")
                         continue
                     y_true = y_true[:, -1, :].long()
-                    y_pred = self.model((data, slices))
+                    y_pred = self.model(data)
                     loss = self.criterion(y_pred.view(-1, self.args.fc_2_dim), y_true.view(-1))
                 else:
                     if self.batch_size:

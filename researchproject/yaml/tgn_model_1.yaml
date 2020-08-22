@@ -1,5 +1,5 @@
 # Model type
-model: dgcn
+model: tgn
 
 # Model options
 node_feat_dim: 4
