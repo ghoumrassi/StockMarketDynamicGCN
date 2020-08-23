@@ -107,7 +107,7 @@ class CompanyGraphDatasetGeo(Dataset):
         print("Done.")
 
     def len(self):
-        return len(self.processed_file_names)
+        return len(self.date_array_restricted)
 
     def get(self, i):
         date = self.date_array_restricted[i] # maybeee?
