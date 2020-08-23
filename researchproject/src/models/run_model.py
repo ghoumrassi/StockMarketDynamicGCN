@@ -19,7 +19,7 @@ from tqdm import tqdm
 from src import MODEL_SAVE_DIR, MODEL_ARGS, PG_CREDENTIALS, GEO_DATA
 from src.models.evolvegcn import EvolveGCN
 from src.models.lstm import LSTMModel
-from src.models.dgcn import DGCN, DGCN2
+from src.models.dgcn import *
 from src.data.datasets import CompanyStockGraphDataset
 from src.data.datasets_geo import CompanyGraphDatasetGeo
 from src.data.dataset_elliptic_temporal import EllipticTemporalDataset
@@ -38,6 +38,9 @@ class ModelTrainer:
             self.geo = False
         elif args.model == 'dgcn':
             self.model = DGCN(args)
+            self.geo = True
+        elif args.model == 'dgcn_agg':
+            self.model = DGCNAgg(args)
             self.geo = True
         elif args.model == 'dgcn2':
             self.model = DGCN2(args)
@@ -205,7 +208,7 @@ class ModelTrainer:
                     loss.backward()
                     self.optimizer.step()
 
-                # acc.append(self.get_accuracy(y_true, y_pred))
+                acc.append(self.get_accuracy(y_true, y_pred))
                 # # f1.append(self.get_score(f1_score, y_true, y_pred, average='macro'))
                 # prec.append(self.get_score(precision_score, y_true, y_pred, average='micro'))
                 # rec.append(self.get_score(recall_score, y_true, y_pred, average='micro'))
@@ -255,6 +258,8 @@ class ModelTrainer:
         return model
 
     def get_accuracy(self, true, predictions):
+        true = true.reshape(-1)
+        predictions = predictions.reshape(-1, 3)
         if self.device == "cpu":
             return accuracy_score(true, torch.argmax(predictions, dim=1))
         else:

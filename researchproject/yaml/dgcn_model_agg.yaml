@@ -1,0 +1,38 @@
+# Model type
+model: dgcn_agg
+
+# Model options
+node_feat_dim: 4
+layer_1_dim: 16
+layer_2_dim: 16
+lstm_dim: 16
+
+num_layers: 2
+fc_1_dim: 16
+fc_2_dim: 3
+dropout: 0.5
+
+# training args
+optimizer: sgd
+optim_args:
+  lr: 0.01
+  momentum: 0.9
+skipfeats: false
+epochs: 10
+returns_threshold: 0.01
+batchsize: 2
+
+# dataset args
+dataset: main
+seq_length: 30
+predict_periods: 1
+features:
+  - adjVolume
+  - adjHigh
+  - adjLow
+
+# misc
+timeout: 10000
+size: small
+plot: false
+file: evolvegcn.out
