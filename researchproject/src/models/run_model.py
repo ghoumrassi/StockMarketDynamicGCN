@@ -19,8 +19,7 @@ from tqdm import tqdm
 from src import MODEL_SAVE_DIR, MODEL_ARGS, PG_CREDENTIALS, GEO_DATA
 from src.models.evolvegcn import EvolveGCN
 from src.models.lstm import LSTMModel
-from src.models.dgcn import DGCN
-from src.models.tgn import TGN1
+from src.models.dgcn import DGCN, DGCN2
 from src.data.datasets import CompanyStockGraphDataset
 from src.data.datasets_geo import CompanyGraphDatasetGeo
 from src.data.dataset_elliptic_temporal import EllipticTemporalDataset
@@ -40,8 +39,8 @@ class ModelTrainer:
         elif args.model == 'dgcn':
             self.model = DGCN(args)
             self.geo = True
-        elif args.model == 'tgn':
-            self.model = TGN1(args)
+        elif args.model == 'dgcn2':
+            self.model = DGCN2(args)
             self.geo = True
         else:
             raise NotImplementedError("Only 'egcn' and 'lstm' have been implemented so far.")
@@ -114,8 +113,8 @@ class ModelTrainer:
             print("Epoch: %s" % epoch)
             _, train_loss, train_acc = self.training_loop(self.train_loader, training=True)
             _, val_loss, val_acc = self.training_loop(self.val_loader)
-            if self.plot:
-                self.plot({'Train': train_loss, 'Validation': val_loss})
+            if self.args.plot:
+                self.args.plot({'Train': train_loss, 'Validation': val_loss})
             print(f"Training loss: {train_loss}")
             print(f"Validation loss: {val_loss}")
 

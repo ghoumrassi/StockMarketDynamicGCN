@@ -1,11 +1,11 @@
 # Model type
-model: tgn
+model: dgcn2
 
 # Model options
 node_feat_dim: 4
+lstm_dim: 16
 layer_1_dim: 16
 layer_2_dim: 16
-lstm_dim: 16
 
 num_layers: 2
 fc_1_dim: 16
@@ -20,8 +20,8 @@ optim_args:
 skipfeats: false
 epochs: 10
 returns_threshold: 0.01
-batchsize: 10
-edgetype: 1
+batchsize: 2
+edgetype: 2
 
 # dataset args
 dataset: main
@@ -34,6 +34,6 @@ features:
 
 # misc
 timeout: 10000
-size: large
+size: small
 plot: false
 file: evolvegcn.out
