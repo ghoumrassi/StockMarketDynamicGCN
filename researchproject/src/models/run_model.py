@@ -83,7 +83,7 @@ class ModelTrainer:
         if args.size == 'small':
             self.dates = {
                 # 'train_start': '01/01/2010', 'train_end': '30/06/2010',
-                'train_start': '01/04/2009', 'train_end': '01/10/2009',
+                'train_start': '01/07/2009', 'train_end': '01/10/2009',
                 'val_start': '01/06/2010', 'val_end': '30/09/2010',
                 'test_start': '01/09/2010', 'test_end': '31/12/2010'}
         elif args.size == 'medium':

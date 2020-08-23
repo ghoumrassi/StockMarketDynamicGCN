@@ -3,6 +3,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch_geometric.nn import GCNConv
 from torch_geometric.utils import to_dense_batch
+import pandas as pd
 
 from src.models.models import NodePredictionModel
 
@@ -19,13 +20,16 @@ class DGCN(nn.Module):
         self.dropout = nn.Dropout(args.dropout)
 
     def forward(self, data):
-        data.x = normalize(data.x)
+        x = normalize(data.x)
+        edge_attr = data.edge_attr[:, self.args.edgetype].abs()
+
         batch_size = data.batch.max() + 1
         seq_len = data.seq.max() + 1
-        out = self.conv1(data.x, data.edge_index, edge_weight=data.edge_attr[:, self.args.edgetype])
+
+        out = self.conv1(x, data.edge_index, edge_weight=edge_attr)
         out = F.relu(out)
         out = self.dropout(out)
-        out = self.conv2(out, data.edge_index, edge_weight=data.edge_attr[:, self.args.edgetype])
+        out = self.conv2(out, data.edge_index, edge_weight=edge_attr)
         out = F.relu(out)
         out = self.dropout(out)
         out, mask = to_dense_batch(out, data.batch)
