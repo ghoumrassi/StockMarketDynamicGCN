@@ -1,0 +1,15 @@
+SELECT DISTINCT ?parentLabel ?parent2Label ?realrelationLabel
+WHERE {
+  #Listed by nasdaq
+  ?parent wdt:P414 wd:Q82059.
+
+  ?parent2 wdt:P414 wd:Q82059.
+
+  ?parent ?relation ?parent2.
+
+  ?realrelation wikibase:directClaim ?relation
+
+  FILTER(?parent != ?parent2)
+
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE], en". }
+}

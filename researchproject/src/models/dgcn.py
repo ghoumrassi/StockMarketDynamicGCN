@@ -119,6 +119,10 @@ class DGCNAgg(nn.Module):
 
         out_list = []
         for i in range(self.num_edge_types):
+            print("Devices:")
+            print("X:", x.get_device())
+            print("Edge attrs:", edge_attr.get_device())
+            print("Edge idx:", data.edge_index.get_device())
             out = self.conv1[i](x, data.edge_index, edge_weight=edge_attr[:, i])
             out = F.relu(out)
             out = self.dropout(out)
