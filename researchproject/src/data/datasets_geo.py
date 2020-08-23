@@ -76,6 +76,8 @@ class CompanyGraphDatasetGeo(Dataset):
             file_names.append(fn_string.format(str(int(date)), str(self.seq_len), str(self.periods), self.feat_id))
         fn_exists = [(data_dir / fn).exists() for fn in file_names]
         fn_can_skip = [all(fn_exists[i: i+self.seq_len]) for i in range(len(fn_exists))]
+        if all(fn_can_skip[self.seq_len:]):
+            return
         for i, date in enumerate(tqdm(data_range, desc="Processing dataset...")):
             fn = (data_dir / file_names[i])
             if fn_can_skip[i]:
