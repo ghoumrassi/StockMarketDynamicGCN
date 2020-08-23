@@ -19,6 +19,7 @@ class DGCN(nn.Module):
         self.dropout = nn.Dropout(args.dropout)
 
     def forward(self, data):
+        data.x = normalize(data.x)
         batch_size = data.batch.max() + 1
         seq_len = data.seq.max() + 1
         out = self.conv1(data.x, data.edge_index, edge_weight=data.edge_attr[:, self.args.edgetype])
@@ -40,3 +41,8 @@ class DGCN(nn.Module):
         out = self.fc2(out)
         out = torch.softmax(out, dim=1)
         return out.reshape(batch_size, -1, self.args.fc_2_dim)
+
+def normalize(x):
+    means = x.mean(dim=0, keepdim=True)
+    stds = x.std(dim=0, keepdim=True)
+    return (x - means) / stds

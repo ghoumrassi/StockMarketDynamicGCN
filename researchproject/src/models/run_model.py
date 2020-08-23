@@ -127,17 +127,17 @@ class ModelTrainer:
                 GEO_DATA, self.features, start_date=self.dates['train_start'], end_date=self.dates['train_end'],
                 device=self.device, rthreshold=self.returns_threshold
             )
-            # self.val_data = CompanyGraphDatasetGeo(
-            #     GEO_DATA, self.features, start_date=self.dates['val_start'], end_date=self.dates['val_end'],
-            #     device=self.device, rthreshold=self.returns_threshold
-            # )
-            # self.test_data = CompanyGraphDatasetGeo(
-            #     GEO_DATA, self.features, start_date=self.dates['test_start'], end_date=self.dates['test_end'],
-            #     device=self.device, rthreshold=self.returns_threshold
-            # )
+            self.val_data = CompanyGraphDatasetGeo(
+                GEO_DATA, self.features, start_date=self.dates['val_start'], end_date=self.dates['val_end'],
+                device=self.device, rthreshold=self.returns_threshold
+            )
+            self.test_data = CompanyGraphDatasetGeo(
+                GEO_DATA, self.features, start_date=self.dates['test_start'], end_date=self.dates['test_end'],
+                device=self.device, rthreshold=self.returns_threshold
+            )
             self.train_loader = GeoDataLoader(self.train_data, batch_size=self.batch_size, shuffle=False)
-            # self.val_loader = GeoDataLoader(self.val_data, batch_size=self.batch_size, shuffle=False)
-            # self.test_loader = GeoDataLoader(self.test_data, batch_size=self.batch_size, shuffle=False)
+            self.val_loader = GeoDataLoader(self.val_data, batch_size=self.batch_size, shuffle=False)
+            self.test_loader = GeoDataLoader(self.test_data, batch_size=self.batch_size, shuffle=False)
         elif self.args.dataset == 'elliptic':
             self.train_data = EllipticTemporalDataset(device=self.device)
             self.val_data = EllipticTemporalDataset(device=self.device)
