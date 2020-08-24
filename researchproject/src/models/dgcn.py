@@ -99,13 +99,13 @@ class DGCNAgg(nn.Module):
     def __init__(self, args, device):
         super().__init__()
         self.args = args
-
+        self.device = device
         self.num_edge_types = 3
         self.conv1 = []
         self.conv2 = []
         for i in range(self.num_edge_types):
-            self.conv1.append(GCNConv(args.node_feat_dim, args.layer_1_dim).to(device))
-            self.conv2.append(GCNConv(args.layer_1_dim, args.layer_2_dim).to(device))
+            self.conv1.append(GCNConv(args.node_feat_dim, args.layer_1_dim).to(self.device))
+            self.conv2.append(GCNConv(args.layer_1_dim, args.layer_2_dim).to(self.device))
         self.lstm = nn.LSTM(self.num_edge_types * args.layer_2_dim, args.lstm_dim, args.num_layers, batch_first=True)
         self.fc1 = nn.Linear(in_features=args.lstm_dim, out_features=args.fc_1_dim)
         self.fc2 = nn.Linear(in_features=args.fc_1_dim, out_features=args.fc_2_dim)
@@ -121,17 +121,13 @@ class DGCNAgg(nn.Module):
         out_list = []
         for i in range(self.num_edge_types):
             edge_attr = data.edge_attr[:, i].abs()
-            print("Devices:")
-            print("X:", x.is_cuda)
-            print("Edge attrs:", edge_attr.is_cuda)
-            print("Edge idx:", data.edge_index.is_cuda)
             out = self.conv1[i](x, data.edge_index, edge_weight=edge_attr)
             out = F.relu(out)
             out = self.dropout(out)
             out = self.conv2[i](out, data.edge_index, edge_weight=edge_attr)
             out = F.relu(out)
             out = self.dropout(out)
-            out, mask = to_dense_batch(out, data.batch)
+            out, mask = to_dense_batch(out, data.batch.to(self.device))
             out = out.reshape(batch_size, seq_len, -1, self.args.lstm_dim)
             out = out.permute(0, 2, 1, 3)
             out = out.reshape(-1, seq_len, self.args.lstm_dim)
