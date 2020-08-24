@@ -1,9 +1,11 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
+from torch.autograd import Variable
 from torch_geometric.nn import GCNConv
 from torch_geometric.utils import to_dense_batch
 from src.models import evolvegcn
+
 
 
 class ClassifierLayer(nn.Module):
@@ -41,6 +43,10 @@ class TemporalLayer(nn.Module):
             raise NotImplementedError("Only lstm or gru currently.")
         self.dropout = nn.Dropout(args.dropout)
 
+    def init_hidden_lstm(self, batch_size):
+        return (Variable(torch.randn((self.args.temporal_num_layers, batch_size, self.args.temporal_out_dim))),
+                Variable(torch.randn((self.args.temporal_num_layers, batch_size, self.args.temporal_out_dim))))
+
     def forward(self, x, data):
         batch_size = data.batch.max() + 1
         seq_len = data.seq.max() + 1
@@ -48,7 +54,13 @@ class TemporalLayer(nn.Module):
         x = x.reshape(batch_size, seq_len, -1, self.args.temporal_in_dim)
         x = x.permute(0, 2, 1, 3)
         x = x.reshape(-1, seq_len, self.args.temporal_in_dim)
-        out, _ = self.temporal(x)
+
+        if self.args.temporal_layer == 'lstm':
+            self.hidden = self.init_hidden_lstm(x.shape[0])
+        else:
+            raise NotImplementedError()
+
+        out, _ = self.temporal(x, self.hidden)
         out = out[:, -1, :]
         out = self.dropout(out)
         return out
