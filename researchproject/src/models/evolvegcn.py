@@ -19,7 +19,7 @@ class EvolveGCN(nn.Module):
     Original implementation: https://github.com/IBM/EvolveGCN
     """
 
-    def __init__(self, args, activation, skipfeats=False):
+    def __init__(self, args, activation, skipfeats=False, device='cpu'):
         super().__init__()
         GRCU_args = Namespace({})
 

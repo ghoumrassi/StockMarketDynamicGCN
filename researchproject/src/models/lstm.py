@@ -4,7 +4,7 @@ from torch import nn
 
 
 class LSTMModel(nn.Module):
-    def __init__(self, args):
+    def __init__(self, args, device):
         super().__init__()
         self.lstm = nn.LSTM(args.lstm_input_size, args.layer_2_dim, num_layers=args.num_layers)
         self.clf = NodePredictionModel(args)
