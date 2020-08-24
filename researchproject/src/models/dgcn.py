@@ -93,6 +93,7 @@ class DGCN2(nn.Module):
         out = torch.softmax(out, dim=1)
         return out.reshape(batch_size, -1, self.args.fc_2_dim)
 
+
 class DGCNAgg(nn.Module):
     def __init__(self, args):
         super().__init__()
@@ -112,21 +113,21 @@ class DGCNAgg(nn.Module):
 
     def forward(self, data):
         x = normalize(data.x)
-        edge_attr = data.edge_attr.abs()
 
         batch_size = data.batch.max() + 1
         seq_len = data.seq.max() + 1
 
         out_list = []
         for i in range(self.num_edge_types):
+            edge_attr = data.edge_attr[:, i].abs()
             print("Devices:")
             print("X:", x.get_device())
             print("Edge attrs:", edge_attr.get_device())
             print("Edge idx:", data.edge_index.get_device())
-            out = self.conv1[i](x, data.edge_index, edge_weight=edge_attr[:, i])
+            out = self.conv1[i](x, data.edge_index, edge_weight=edge_attr)
             out = F.relu(out)
             out = self.dropout(out)
-            out = self.conv2[i](out, data.edge_index, edge_weight=edge_attr[:, i])
+            out = self.conv2[i](out, data.edge_index, edge_weight=edge_attr)
             out = F.relu(out)
             out = self.dropout(out)
             out, mask = to_dense_batch(out, data.batch)
