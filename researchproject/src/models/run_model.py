@@ -35,7 +35,7 @@ class ModelTrainer:
             self.geo = False
         elif args.model == 'lstm':
             self.model = LSTMModel(args, device=self.device)
-            self.geo = False
+            self.geo = True
         elif args.model == 'dgcn':
             self.model = DGCN(args, device=self.device)
             self.geo = True
@@ -192,7 +192,7 @@ class ModelTrainer:
                         continue
                     y_true = y_true[:, -1, :].long()
                     y_pred = self.model(data)
-                    loss = self.criterion(y_pred.view(-1, self.args.fc_2_dim), y_true.view(-1))
+                    loss = self.criterion(y_pred.view(-1, self.args.out_dim), y_true.view(-1))
                 else:
                     if self.batch_size:
                         y_preds = []
@@ -221,9 +221,9 @@ class ModelTrainer:
                     f"Mean precision: {round(np.mean(prec), 4)}, Mean recall: {round(np.mean(rec), 4)}"
                 )
                 if self.device == "cuda:0":
-                    np_preds = y_pred.argmax(dim=2).cpu().numpy()
+                    np_preds = y_pred.argmax(dim=1).cpu().numpy()
                 else:
-                    np_preds = y_pred.argmax(dim=2).numpy()
+                    np_preds = y_pred.argmax(dim=1).numpy()
                 print("Preds:")
                 print("\n0: ", (np_preds == 0).sum())
                 print("1: ", (np_preds == 1).sum())

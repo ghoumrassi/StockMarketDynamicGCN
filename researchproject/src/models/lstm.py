@@ -1,4 +1,5 @@
-from src.models.models import NodePredictionModel
+from torch_geometric.utils import to_dense_batch
+from src.models.layers import TemporalLayer, ClassifierLayer
 
 from torch import nn
 
@@ -6,10 +7,11 @@ from torch import nn
 class LSTMModel(nn.Module):
     def __init__(self, args, device):
         super().__init__()
-        self.lstm = nn.LSTM(args.lstm_input_size, args.layer_2_dim, num_layers=args.num_layers)
-        self.clf = NodePredictionModel(args)
+        self.args = args
+        self.temporal = TemporalLayer(args)
+        self.clf = ClassifierLayer(args)
 
     def forward(self, data):
-        lstm_out, _ = self.lstm(data.x)
-        clf_out = self.clf(lstm_out[-1])
-        return clf_out
+        out = self.temporal(data.x, data)
+        out = self.clf(out)
+        return out
