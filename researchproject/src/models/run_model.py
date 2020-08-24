@@ -224,6 +224,7 @@ class ModelTrainer:
 
     def get_score(self, score, true, predictions, **kwargs):
         true = true.reshape(-1)
+        predictions = predictions.reshape(-1, 3)
         if self.device == "cpu":
             return score(true, torch.argmax(predictions, dim=1), **kwargs)
         else:
