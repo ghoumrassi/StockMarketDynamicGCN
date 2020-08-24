@@ -191,7 +191,7 @@ class ModelTrainer:
                         print("Error")
                         continue
                     y_true = y_true[:, -1, :].long()
-                    y_pred = self.model(data)
+                    y_pred = self.model(data, device=self.device)
                     loss = self.criterion(y_pred.view(-1, self.args.fc_2_dim), y_true.view(-1))
                 else:
                     if self.batch_size:

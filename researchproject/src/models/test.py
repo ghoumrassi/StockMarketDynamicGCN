@@ -11,8 +11,8 @@ class Model(torch.nn.Module):
 
     def forward(self, data):
         out_list = []
-        for i in range(self.num_edge_types):
-            out = self.conv[i](data.x, data.edge_index, edge_weight=data.edge_attr[:, 0])
+        for i in range(3):
+            out = self.conv[i](data.x, data.edge_index, edge_weight=data.edge_attr[:, i])
             out_list.append(out)
         return torch.cat(out_list, dim=1)
 
