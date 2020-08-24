@@ -14,7 +14,7 @@ class LSTMModel(nn.Module):
 
     def forward(self, data):
         x = data.x[:, 0]
-        x = normalize(x)
+        # x = normalize(x)
         out = self.temporal(x, data)
         out = self.clf(out)
         return out
