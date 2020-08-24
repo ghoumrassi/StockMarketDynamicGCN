@@ -189,7 +189,7 @@ class ModelTrainer:
 
                 print("\nPreds:",
                       "\n0: ", (np_preds == 0).sum(),
-                      ", 1: ", (np_preds == 1).sum(), 
+                      ", 1: ", (np_preds == 1).sum(),
                       ", 2: ", (np_preds == 2).sum())
                 print("True:",
                       "\n0: ", (y_true.long() == 0).sum().item(),
@@ -223,6 +223,7 @@ class ModelTrainer:
             return accuracy_score(true.cpu(), torch.argmax(predictions, dim=1).cpu())
 
     def get_score(self, score, true, predictions, **kwargs):
+        true = true.reshape(-1)
         if self.device == "cpu":
             return score(true, torch.argmax(predictions, dim=1), **kwargs)
         else:
@@ -258,7 +259,5 @@ if __name__ == "__main__":
     args.load_model = arg.load_model
 
     trainer = ModelTrainer(args)
-    try:
-        trainer.run()
-    finally:
-        trainer.close()
+
+    trainer.run()
