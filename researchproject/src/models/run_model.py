@@ -108,7 +108,7 @@ class ModelTrainer:
     def run(self):
         self.load_data(timeout=self.timeout)
         self.criterion.weight = get_ce_weights(self.engine, self.dates['train_start'], self.dates['train_end'],
-                                               self.args.returns_threshold)
+                                               self.args.returns_threshold).to(self.device)
         for epoch in range(self.start_epoch, self.epochs):
             self.current_epoch = epoch
             print("Epoch: %s" % epoch)
