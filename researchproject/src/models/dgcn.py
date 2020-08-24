@@ -9,7 +9,7 @@ from src.models.models import NodePredictionModel
 
 
 class DGCN(nn.Module):
-    def __init__(self, args, device='cpu'):
+    def __init__(self, args):
         super().__init__()
         self.args = args
         self.conv1 = GCNConv(args.node_feat_dim, args.layer_1_dim)
@@ -48,7 +48,7 @@ class DGCN(nn.Module):
         return out.reshape(batch_size, -1, self.args.fc_2_dim)
 
 class DGCN2(nn.Module):
-    def __init__(self, args, device='cpu'):
+    def __init__(self, args):
         super().__init__()
         self.args = args
         self.lstm = nn.LSTM(args.node_feat_dim, args.lstm_dim, args.num_layers, batch_first=True)
@@ -96,7 +96,7 @@ class DGCN2(nn.Module):
 
 
 class DGCNAgg(nn.Module):
-    def __init__(self, args, device='cpu'):
+    def __init__(self, args):
         super().__init__()
         self.args = args
 

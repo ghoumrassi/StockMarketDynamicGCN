@@ -31,19 +31,19 @@ class ModelTrainer:
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.args = args
         if args.model == 'egcn':
-            self.model = EvolveGCN(args, activation=torch.relu, skipfeats=args.skipfeats)
+            self.model = EvolveGCN(args, activation=torch.relu, skipfeats=args.skipfeats).to(self.device)
             self.geo = False
         elif args.model == 'lstm':
-            self.model = LSTMModel(args)
+            self.model = LSTMModel(args).to(self.device)
             self.geo = False
         elif args.model == 'dgcn':
-            self.model = DGCN(args)
+            self.model = DGCN(args).to(self.device)
             self.geo = True
         elif args.model == 'dgcn_agg':
-            self.model = DGCNAgg(args)
+            self.model = DGCNAgg(args).to(self.device)
             self.geo = True
         elif args.model == 'dgcn2':
-            self.model = DGCN2(args)
+            self.model = DGCN2(args).to(self.device)
             self.geo = True
         else:
             raise NotImplementedError("Only 'egcn' and 'lstm' have been implemented so far.")
@@ -191,7 +191,7 @@ class ModelTrainer:
                         print("Error")
                         continue
                     y_true = y_true[:, -1, :].long()
-                    y_pred = self.model(data, device=self.device)
+                    y_pred = self.model(data)
                     loss = self.criterion(y_pred.view(-1, self.args.fc_2_dim), y_true.view(-1))
                 else:
                     if self.batch_size:
