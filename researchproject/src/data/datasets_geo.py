@@ -67,7 +67,7 @@ class CompanyGraphDatasetGeo(Dataset):
         return proc_files
 
     def process(self):
-        return
+        return # FOR TESTING: MUST
         data_dir = Path(self.processed_dir)
         data_list = []
         data_range = self.date_array[self.seq_len - 1: -self.periods]

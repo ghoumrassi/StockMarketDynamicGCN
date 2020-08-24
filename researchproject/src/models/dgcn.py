@@ -121,9 +121,9 @@ class DGCNAgg(nn.Module):
         for i in range(self.num_edge_types):
             edge_attr = data.edge_attr[:, i].abs()
             print("Devices:")
-            print("X:", x.get_device())
-            print("Edge attrs:", edge_attr.get_device())
-            print("Edge idx:", data.edge_index.get_device())
+            print("X:", x.is_cuda)
+            print("Edge attrs:", edge_attr.is_cuda)
+            print("Edge idx:", data.edge_index.is_cuda)
             out = self.conv1[i](x, data.edge_index, edge_weight=edge_attr)
             out = F.relu(out)
             out = self.dropout(out)
