@@ -23,3 +23,9 @@ class Namespace(object):
     '''
     def __init__(self, adict):
         self.__dict__.update(adict)
+
+
+def normalize(x):
+    means = x.mean(dim=0, keepdim=True)
+    stds = x.std(dim=0, keepdim=True)
+    return (x - means) / stds

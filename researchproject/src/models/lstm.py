@@ -1,5 +1,6 @@
 from torch_geometric.utils import to_dense_batch
 from src.models.layers import TemporalLayer, ClassifierLayer
+from src.models.utils import normalize
 
 from torch import nn
 
@@ -12,6 +13,7 @@ class LSTMModel(nn.Module):
         self.clf = ClassifierLayer(args)
 
     def forward(self, data):
+        x = normalize(data.x)
         out = self.temporal(data.x, data)
         out = self.clf(out)
         return out
