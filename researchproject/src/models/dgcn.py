@@ -7,6 +7,7 @@ import pandas as pd
 
 from src.models.models import NodePredictionModel
 
+
 class DGCN(nn.Module):
     def __init__(self, args):
         super().__init__()
