@@ -165,7 +165,7 @@ class ModelTrainer:
                     continue
                 y_true = y_true[:, -1, :].long()
                 y_pred = self.model(data)
-                loss = self.criterion(y_pred.view(-1, self.args.out_dim), y_true.view(-1))
+                loss = self.criterion(y_pred.view(-1, 3), y_true.view(-1))
 
                 if training:
                     loss.backward()
