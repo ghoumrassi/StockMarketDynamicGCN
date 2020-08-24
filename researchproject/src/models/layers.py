@@ -32,9 +32,11 @@ class TemporalLayer(nn.Module):
         self.args = args
         self.device = device
         if args.temporal_layer == 'lstm':
-            self.temporal = nn.LSTM(args.temporal_in_dim, args.temporal_out_dim, num_layers=args.temporal_num_layers)
+            self.temporal = nn.LSTM(args.temporal_in_dim, args.temporal_out_dim, num_layers=args.temporal_num_layers,
+                                    batch_first=True)
         elif args.temporal_layer == 'gru':
-            self.temporal = nn.LSTM(args.temporal_in_dim, args.temporal_out_dim, num_layers=args.temporal_num_layers)
+            self.temporal = nn.LSTM(args.temporal_in_dim, args.temporal_out_dim, num_layers=args.temporal_num_layers,
+                                    batch_first=True)
         else:
             raise NotImplementedError("Only lstm or gru currently.")
         self.dropout = nn.Dropout(args.dropout)
