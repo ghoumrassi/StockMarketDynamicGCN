@@ -23,7 +23,8 @@ from src.models.dgcn import *
 from src.data.datasets import CompanyStockGraphDataset
 from src.data.datasets_geo import CompanyGraphDatasetGeo
 from src.data.dataset_elliptic_temporal import EllipticTemporalDataset
-from src.data.utils import create_connection_psql, get_ce_weights
+from src.data.utils import create_connection_psql
+from src.models.utils import get_ce_weights
 
 
 class ModelTrainer:
