@@ -23,7 +23,7 @@ from src.models.dgcn import *
 from src.data.datasets import CompanyStockGraphDataset
 from src.data.datasets_geo import CompanyGraphDatasetGeo
 from src.data.dataset_elliptic_temporal import EllipticTemporalDataset
-from src.data.utils import create_connection_psql
+from src.data.utils import create_connection_psql, get_ce_weights
 
 
 class ModelTrainer:
@@ -106,10 +106,8 @@ class ModelTrainer:
 
     def run(self):
         self.load_data(timeout=self.timeout)
-        self.criterion.weight = torch.cat(
-            [data.y for data in self.train_data],
-            dim=0
-        ).unique(return_counts=True)[1].float()
+        self.criterion.weight = get_ce_weights(self.engine, self.dates['train_start'], self.dates['train_end'],
+                                               self.args.returns_threshold)
         for epoch in range(self.start_epoch, self.epochs):
             self.current_epoch = epoch
             print("Epoch: %s" % epoch)
