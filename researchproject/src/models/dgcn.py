@@ -104,8 +104,8 @@ class DGCNAgg(nn.Module):
         self.conv1 = []
         self.conv2 = []
         for i in range(self.num_edge_types):
-            self.conv1.append(GCNConv(args.node_feat_dim, args.layer_1_dim))
-            self.conv2.append(GCNConv(args.layer_1_dim, args.layer_2_dim))
+            self.conv1.append(GCNConv(args.node_feat_dim, args.layer_1_dim).to(device))
+            self.conv2.append(GCNConv(args.layer_1_dim, args.layer_2_dim).to(device))
         self.lstm = nn.LSTM(self.num_edge_types * args.layer_2_dim, args.lstm_dim, args.num_layers, batch_first=True)
         self.fc1 = nn.Linear(in_features=args.lstm_dim, out_features=args.fc_1_dim)
         self.fc2 = nn.Linear(in_features=args.fc_1_dim, out_features=args.fc_2_dim)
