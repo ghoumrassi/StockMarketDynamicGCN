@@ -32,19 +32,14 @@ class ModelTrainer:
         self.args = args
         if args.model == 'egcn':
             self.model = EvolveGCN(args, activation=torch.relu, skipfeats=args.skipfeats, device=self.device)
-            self.geo = False
         elif args.model == 'lstm':
             self.model = LSTMModel(args, device=self.device)
-            self.geo = True
         elif args.model == 'dgcn':
             self.model = DGCN(args, device=self.device)
-            self.geo = True
         elif args.model == 'dgcn_agg':
             self.model = DGCNAgg(args, device=self.device)
-            self.geo = True
         elif args.model == 'dgcn2':
             self.model = DGCN2(args, device=self.device)
-            self.geo = True
         else:
             raise NotImplementedError("Only 'egcn' and 'lstm' have been implemented so far.")
 
@@ -147,28 +142,6 @@ class ModelTrainer:
             self.train_loader = GeoDataLoader(self.train_data, batch_size=self.batch_size, shuffle=False)
             self.val_loader = GeoDataLoader(self.val_data, batch_size=self.batch_size, shuffle=False)
             self.test_loader = GeoDataLoader(self.test_data, batch_size=self.batch_size, shuffle=False)
-        elif self.args.dataset == 'main' and not self.geo:
-            self.train_data = CompanyStockGraphDataset(
-                self.features, device=self.device, start_date=self.dates['train_start'],
-                end_date=self.dates['train_end'], window_size=self.sequence_length,
-                predict_periods=self.predict_periods, timeout=self.timeout, returns_threshold=self.returns_threshold,
-                adj=self.args.adj, adj2=self.args.adj2, k=self.args.k
-            )
-            self.val_data = CompanyStockGraphDataset(
-                self.features, device=self.device, start_date=self.dates['val_start'],
-                end_date=self.dates['val_end'], window_size=self.sequence_length,
-                predict_periods=self.predict_periods, timeout=self.timeout, returns_threshold=self.returns_threshold,
-                adj=self.args.adj, adj2=self.args.adj2, k=self.args.k
-            )
-            self.test_data = CompanyStockGraphDataset(
-                self.features, device=self.device, start_date=self.dates['test_start'],
-                end_date=self.dates['test_end'], window_size=self.sequence_length,
-                predict_periods=self.predict_periods, timeout=self.timeout, returns_threshold=self.returns_threshold,
-                adj=self.args.adj, adj2=self.args.adj2, k=self.args.k
-            )
-            self.train_loader = DataLoader(self.train_data, batch_size=self.batch_size, shuffle=False, drop_last=True)
-            self.val_loader = DataLoader(self.val_data, batch_size=self.batch_size, shuffle=False, drop_last=True)
-            self.test_loader = DataLoader(self.test_data, batch_size=self.batch_size, shuffle=False, drop_last=True)
         else:
             raise NotImplementedError("The dataset chosen has not been implemented.")
 
@@ -180,38 +153,27 @@ class ModelTrainer:
         prec = []
         rec = []
         with tqdm(loader) as pbar:
-            for i, *inputs in enumerate(pbar):
+            for i, data in enumerate(pbar):
                 self.current_iteration = i
                 self.model.zero_grad()
-                if self.geo:
-                    data = inputs[0]
-                    try:
-                        y_true = data.y.view(self.batch_size, self.sequence_length, -1)
-                    except:
-                        print("Error")
-                        continue
-                    y_true = y_true[:, -1, :].long()
-                    y_pred = self.model(data)
-                    loss = self.criterion(y_pred.view(-1, self.args.out_dim), y_true.view(-1))
-                else:
-                    if self.batch_size:
-                        y_preds = []
-                        for b in range(self.batch_size):
-                            y_pred = self.model(*[inp[b] for inp in inputs[:-1]])
-                            y_preds.append(y_pred.reshape(1, *y_pred.shape))
 
-                        loss = self.criterion(torch.cat(y_preds, 0).permute(0, 2, 1), y_true.long())
-                    else:
-                        y_pred = self.model(*inputs[:-1])
-                        loss = self.criterion(y_pred, y_true.long())
+                try:
+                    y_true = data.y.view(self.batch_size, self.sequence_length, -1)
+                except:
+                    print("Error")
+                    continue
+                y_true = y_true[:, -1, :].long()
+                y_pred = self.model(data)
+                loss = self.criterion(y_pred.view(-1, self.args.out_dim), y_true.view(-1))
+
                 if training:
                     loss.backward()
                     self.optimizer.step()
 
                 acc.append(self.get_accuracy(y_true, y_pred))
-                # # f1.append(self.get_score(f1_score, y_true, y_pred, average='macro'))
-                # prec.append(self.get_score(precision_score, y_true, y_pred, average='micro'))
-                # rec.append(self.get_score(recall_score, y_true, y_pred, average='micro'))
+                f1.append(self.get_score(f1_score, y_true, y_pred, average='micro'))
+                prec.append(self.get_score(precision_score, y_true, y_pred, average='micro'))
+                rec.append(self.get_score(recall_score, y_true, y_pred, average='micro'))
                 running_loss += loss.item()
                 mean_loss = running_loss / (i + 1)
                 mean_loss_hist.append(mean_loss)
@@ -224,24 +186,19 @@ class ModelTrainer:
                     np_preds = y_pred.argmax(dim=1).cpu().numpy()
                 else:
                     np_preds = y_pred.argmax(dim=1).numpy()
-                print("Preds:")
-                print("\n0: ", (np_preds == 0).sum())
-                print("1: ", (np_preds == 1).sum())
-                print("2: ", (np_preds == 2).sum())
-                print("True:")
-                print("\n0: ", (y_true.long() == 0).sum().item())
-                print("1: ", (y_true.long() == 1).sum().item())
-                print("2: ", (y_true.long() == 2).sum().item())
+
+                print("\nPreds:",
+                      "\n0: ", (np_preds == 0).sum(),
+                      ", 1: ", (np_preds == 1).sum(), 
+                      ", 2: ", (np_preds == 2).sum())
+                print("True:",
+                      "\n0: ", (y_true.long() == 0).sum().item(),
+                      "1: ", (y_true.long() == 1).sum().item(),
+                      "2: ", (y_true.long() == 2).sum().item())
             if training:
                 self.save_checkpoint(self.model, self.model_file)
 
         return y_pred, mean_loss_hist, acc
-
-    # def get_node_embs(self, n_embs, n_idx):
-    #     return torch.cat(
-    #         [n_embs[n_set] for n_set in n_idx],
-    #         dim=1
-    #     )
 
     def plot(self, series_dict, figure_aspect=(8,8)):
         fig, ax = plt.subplots(len(series_dict), figsize=figure_aspect)
