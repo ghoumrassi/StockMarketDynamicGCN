@@ -44,8 +44,14 @@ class TemporalLayer(nn.Module):
         self.dropout = nn.Dropout(args.dropout)
 
     def init_hidden_lstm(self, batch_size):
-        return (Variable(torch.randn((self.args.temporal_num_layers, batch_size, self.args.temporal_out_dim))),
-                Variable(torch.randn((self.args.temporal_num_layers, batch_size, self.args.temporal_out_dim))))
+        return (
+            Variable(
+                torch.randn((self.args.temporal_num_layers, batch_size, self.args.temporal_out_dim))
+            ).to(self.device),
+            Variable(
+                torch.randn((self.args.temporal_num_layers, batch_size, self.args.temporal_out_dim))
+            ).to(self.device)
+        )
 
     def forward(self, x, data):
         batch_size = data.batch.max() + 1
