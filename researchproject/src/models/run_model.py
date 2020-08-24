@@ -124,6 +124,7 @@ class ModelTrainer:
                 GEO_DATA, self.features, start_date=self.dates['train_start'], end_date=self.dates['train_end'],
                 device=self.device, rthreshold=self.returns_threshold
             )
+            self.criterion.weight = torch.cat([data.y for data in self.train_data], dim=0).unique(return_counts=True)[1]
             self.val_data = CompanyGraphDatasetGeo(
                 GEO_DATA, self.features, start_date=self.dates['val_start'], end_date=self.dates['val_end'],
                 device=self.device, rthreshold=self.returns_threshold
