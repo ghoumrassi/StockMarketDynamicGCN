@@ -15,8 +15,7 @@ class ClassifierLayer(nn.Module):
         self.dropout = nn.Dropout(args.dropout)
 
     def forward(self, x):
-        out = self.dropout(x)
-        out = self.fc1(out)
+        out = self.fc1(x)
         out = torch.relu(out)
         out = self.dropout(out)
         out = self.fc2(out)
@@ -38,6 +37,7 @@ class TemporalLayer(nn.Module):
             self.temporal = nn.LSTM(args.temporal_in_dim, args.temporal_out_dim, num_layers=args.temporal_num_layers)
         else:
             raise NotImplementedError("Only lstm or gru currently.")
+        self.dropout = nn.Dropout(args.dropout)
 
     def forward(self, x, data):
         batch_size = data.batch.max() + 1
@@ -47,9 +47,10 @@ class TemporalLayer(nn.Module):
         x = x.reshape(batch_size, seq_len, -1, self.args.temporal_in_dim)
         x = x.permute(0, 2, 1, 3)
         x = x.reshape(-1, seq_len, self.args.temporal_in_dim)
-
+        # x = x.reshape(batch_size, seq_len, -1)
         out, _ = self.temporal(x)
         out = out[:, -1, :]
+        out = self.dropout(out)
         return out
 
 

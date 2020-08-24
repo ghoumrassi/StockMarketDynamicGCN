@@ -13,7 +13,8 @@ class LSTMModel(nn.Module):
         self.clf = ClassifierLayer(args)
 
     def forward(self, data):
-        x = normalize(data.x)
-        out = self.temporal(data.x, data)
+        x = data.x[:, 0]
+        x = normalize(x)
+        out = self.temporal(x, data)
         out = self.clf(out)
         return out

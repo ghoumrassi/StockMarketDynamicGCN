@@ -3,7 +3,7 @@ model: lstm
 
 # Model options
 temporal_layer: lstm
-temporal_in_dim: 4
+temporal_in_dim: 1
 temporal_out_dim: 128
 temporal_num_layers: 2
 clf_in_dim: 128
