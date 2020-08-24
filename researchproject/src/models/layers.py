@@ -28,9 +28,10 @@ class ClassifierLayer(nn.Module):
 
 
 class TemporalLayer(nn.Module):
-    def __init__(self, args):
+    def __init__(self, args, device):
         super().__init__()
         self.args = args
+        self.device = device
         if args.temporal_layer == 'lstm':
             self.temporal = nn.LSTM(args.temporal_in_dim, args.temporal_out_dim, num_layers=args.temporal_num_layers)
         elif args.temporal_layer == 'gru':
@@ -42,7 +43,7 @@ class TemporalLayer(nn.Module):
         batch_size = data.batch.max() + 1
         seq_len = data.seq.max() + 1
 
-        x, mask = to_dense_batch(x, data.batch)
+        x, mask = to_dense_batch(x, data.batch.to(self.device))
         x = x.reshape(batch_size, seq_len, -1, self.args.temporal_in_dim)
         x = x.permute(0, 2, 1, 3)
         x = x.reshape(-1, seq_len, self.args.temporal_in_dim)

@@ -8,7 +8,7 @@ class LSTMModel(nn.Module):
     def __init__(self, args, device):
         super().__init__()
         self.args = args
-        self.temporal = TemporalLayer(args)
+        self.temporal = TemporalLayer(args, device)
         self.clf = ClassifierLayer(args)
 
     def forward(self, data):
