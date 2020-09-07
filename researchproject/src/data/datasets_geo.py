@@ -74,10 +74,12 @@ class CompanyGraphDatasetGeo(Dataset):
         data_dir = Path(self.processed_dir)
         data_list = []
         data_range = self.date_array[self.seq_len - 1: -self.periods]
-        fn_string = 'data_{}_{}_{}_{}.pt'
         file_names = []
         for date in data_range:
-            file_names.append(fn_string.format(str(int(date)), str(self.seq_len), str(self.periods), self.feat_id))
+            fn = '_'.join(
+                ['data', str(int(date)), str(self.seq_len), str(self.periods), str(self.persistence), str(self.feat_id)]
+            ) + '.pt'
+            file_names.append(fn)
         fn_exists = [(data_dir / fn).exists() for fn in file_names]
         fn_can_skip = [all(fn_exists[i: i + self.seq_len]) for i in range(len(fn_exists))]
         if all(fn_can_skip[self.seq_len:]):
@@ -115,9 +117,10 @@ class CompanyGraphDatasetGeo(Dataset):
     def get(self, i):
         date = self.date_array[i]  # maybeee?
         data_dir = Path(self.processed_dir)
-        data = torch.load(
-            (data_dir / f'data_{str(int(date))}_{str(self.seq_len)}_{str(self.periods)}_{self.feat_id}.pt')
-        )
+        fn = '_'.join(
+            ['data', str(int(date)), str(self.seq_len), str(self.periods), str(self.persistence), str(self.feat_id)]
+        ) + '.pt'
+        data = torch.load((data_dir / fn))
         y = data.y.clone()
         data.r = data.y
         y[data.y < -self.rthreshold] = 0
@@ -262,6 +265,6 @@ class CompanyGraphDatasetGeo(Dataset):
 
 
 if __name__ == "__main__":
-    ds = CompanyGraphDatasetGeo(root=GEO_DATA, start_date='01/01/2013', periods=3)
+    ds = CompanyGraphDatasetGeo(root=GEO_DATA, periods=3)
     for i in range(5):
         print(ds[i])
