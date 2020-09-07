@@ -1,0 +1,16 @@
+SELECT DISTINCT ?companyLabel ?relationLabel ?intimediaryLabel ?relation2Label ?company2Label
+WHERE {
+  ?company wdt:P361 wd:Q507306.
+  ?company2 wdt:P361 wd:Q507306.
+  VALUES ?relationid {wdt:P488 wdt:P1037 wdt:P169 wdt:P112 wdt:P127}
+  VALUES ?relationid2 {wdt:P488 wdt:P1037 wdt:P169 wdt:P112 wdt:P127}
+  ?company ?relationid ?intermediary.
+  ?intimediary ?relationid2 ?company2.
+
+  ?relation wikibase:directClaim ?relationid.
+  ?relation2 wikibase:directClaim ?relationid2.
+
+  FILTER(?company != ?company2)
+
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE], en". }
+}

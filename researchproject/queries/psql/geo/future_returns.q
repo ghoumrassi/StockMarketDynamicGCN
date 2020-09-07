@@ -4,5 +4,7 @@ INNER JOIN nasdaq100 AS nd
 ON ticker = nd."Symbol"
 
 WHERE
-    date = :date
+    date > :date
+AND
+    date <= :futuredate
 GROUP BY ticker

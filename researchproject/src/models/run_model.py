@@ -12,12 +12,13 @@ import time
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 import numpy as np
 np.random.seed(0)
-
+from sqlalchemy import text
 from tqdm import tqdm
 
 
 from src import MODEL_SAVE_DIR, MODEL_ARGS, PG_CREDENTIALS, GEO_DATA
 from src.models.evolvegcn import EvolveGCN
+from src.models.evolve_geo import Evolve
 from src.models.lstm import LSTMModel
 from src.models.dgcn import *
 from src.data.datasets import CompanyStockGraphDataset
@@ -28,11 +29,13 @@ from src.models.utils import get_ce_weights
 
 
 class ModelTrainer:
-    def __init__(self, args):
+    def __init__(self, args, log=True):
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.args = args
-        if args.model == 'egcn':
-            self.model = EvolveGCN(args, activation=torch.relu, skipfeats=args.skipfeats, device=self.device)
+        # if args.model == 'egcn':
+        #     self.model = EvolveGCN(args, activation=torch.relu, skipfeats=args.skipfeats, device=self.device)
+        if args.model == 'evolve':
+            self.model = Evolve(args)
         elif args.model == 'lstm':
             self.model = LSTMModel(args, device=self.device)
         elif args.model == 'dgcn':
@@ -66,6 +69,9 @@ class ModelTrainer:
             torch.backends.cudnn.benchmark = False
             self.model.cuda()
 
+        self.log = log
+        if self.log:
+            self.model_name = input("Name current model instance: ")
         self.engine = create_connection_psql(PG_CREDENTIALS)
         self.timestamp = time.time()
         self.sequence_length = args.seq_length
@@ -77,6 +83,7 @@ class ModelTrainer:
         self.current_epoch = None
         self.current_iteration = None
         self.returns_threshold = args.returns_threshold
+        self.phase = None
 
         if args.size == 'small':
             self.dates = {
@@ -112,13 +119,15 @@ class ModelTrainer:
         for epoch in range(self.start_epoch, self.epochs):
             self.current_epoch = epoch
             print("Epoch: %s" % epoch)
+            self.phase = 'training'
             _, train_loss, train_acc = self.training_loop(self.train_loader, training=True)
+            self.phase = 'validation'
             _, val_loss, val_acc = self.training_loop(self.val_loader)
             if self.args.plot:
                 self.args.plot({'Train': train_loss, 'Validation': val_loss})
             print(f"Training loss: {train_loss}")
             print(f"Validation loss: {val_loss}")
-
+        self.phase = 'testing'
         test_predictions, test_loss, test_acc = self.training_loop(self.test_loader)
 
     def load_data(self, timeout=30):
@@ -155,6 +164,7 @@ class ModelTrainer:
         f1 = []
         prec = []
         rec = []
+        profit = []
         with tqdm(loader) as pbar:
             for i, data in enumerate(pbar):
                 self.current_iteration = i
@@ -177,13 +187,15 @@ class ModelTrainer:
                 f1.append(self.get_score(f1_score, y_true, y_pred, average='micro'))
                 prec.append(self.get_score(precision_score, y_true, y_pred, average='micro'))
                 rec.append(self.get_score(recall_score, y_true, y_pred, average='micro'))
+                profit.append(self.get_profit(data.r.view(self.batch_size, self.sequence_length, -1), y_pred))
                 running_loss += loss.item()
                 mean_loss = running_loss / (i + 1)
                 mean_loss_hist.append(mean_loss)
 
                 pbar.set_description(
                     f"Mean loss: {round(mean_loss, 4)}, Mean acc: {round(np.mean(acc), 4)}, "
-                    f"Mean precision: {round(np.mean(prec), 4)}, Mean recall: {round(np.mean(rec), 4)}"
+                    f"Mean precision: {round(np.mean(prec), 4)}, Mean recall: {round(np.mean(rec), 4)}, "
+                    f"Mean profit: {round(np.mean(profit), 4)}"
                 )
                 if self.device == "cuda:0":
                     np_preds = y_pred.argmax(dim=1).cpu().numpy()
@@ -198,6 +210,15 @@ class ModelTrainer:
                       "\n0: ", (y_true.long() == 0).sum().item(),
                       "1: ", (y_true.long() == 1).sum().item(),
                       "2: ", (y_true.long() == 2).sum().item())
+
+                if self.log:
+                    log_data = {
+                        'name': self.model_name, 'loss': loss.item(), 'accuracy': acc[-1], 'f1': f1[-1],
+                        'precision': prec[-1], 'recall': rec[-1], 'profit': profit[-1], 'epoch': self.current_epoch,
+                        'iteration': i, 'phase': self.phase
+                    }
+                    self.log_metrics(log_data)
+
             if training:
                 self.save_checkpoint(self.model, self.model_file)
 
@@ -217,6 +238,11 @@ class ModelTrainer:
         model = model.load_state_dict(checkpoint)
         return model
 
+    def log_metrics(self, data):
+        q = """INSERT INTO model_logs (name, loss, accuracy, f1, precision, recall, profit, epoch, iteration, phase)
+        values (:name, :loss, :accuracy, :f1, :precision, :recall, :profit, :epoch, :iteration, :phase)"""
+        self.engine.execute(text(q), **data)
+
     def get_accuracy(self, true, predictions):
         true = true.reshape(-1)
         predictions = predictions.reshape(-1, 3)
@@ -232,6 +258,11 @@ class ModelTrainer:
             return score(true, torch.argmax(predictions, dim=1), **kwargs)
         else:
             return score(true.cpu(), torch.argmax(predictions, dim=1).cpu(), **kwargs)
+
+    def get_profit(self, returns, predictions):
+        returns = returns[:, -1, :].reshape(-1)
+        predictions = torch.argmax(predictions.reshape(-1, 3), dim=1)
+        return returns[predictions == 2].mean().item()
 
     def close(self):
         for dataset in (self.train_data, self.test_data, self.val_data):
@@ -257,11 +288,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('yaml', default=None, help="Filename for model arguments.")
     parser.add_argument('--load', "-l", dest="load_model", default=None, help="Filename for saved model information.")
+    parser.add_argument('--no-log', dest="log", action='store_false', help="Enables logging of training metrics")
     arg = parser.parse_args()
 
     args = Args((MODEL_ARGS / arg.yaml))
     args.load_model = arg.load_model
 
-    trainer = ModelTrainer(args)
+    trainer = ModelTrainer(args, arg.log)
 
     trainer.run()

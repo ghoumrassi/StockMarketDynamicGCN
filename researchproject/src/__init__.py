@@ -48,6 +48,9 @@ SQLITE_DB = Path(resource_filename(__name__, '../data/projectdata.db'))
 ''' PostgreSQL Database '''
 PG_CREDENTIALS = Path(resource_filename(__name__, '../misc/pg_creds.json'))
 
+''' Reddit Credentials '''
+REDDIT_CREDENTIALS = Path(resource_filename(__name__, '../misc/reddit_creds.json'))
+
 ''' H5 '''
 # H5 File
 H5_FILE = Path(resource_filename(__name__, '../data/interim/h5/data.h5'))

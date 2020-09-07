@@ -1,45 +1,39 @@
 import torch
 from torch.nn import GRU
-from torch_geometric.nn import GCNConv
-from torch_geometric.nn import TopKPooling
+from torch_geometric.nn import GCNConv, TopKPooling
+from torch_geometric.utils import to_dense_batch, to_dense_adj, dense_to_sparse
 
-
-class EvolveGCN(torch.nn.Module):
+class Evolve(torch.nn.Module):
     def __init__(self, args):
         super().__init__()
         self.args = args
-        self.num_of_nodes = num_of_nodes
+        self.pooling_layer = TopKPooling(args.node_feat_dim, args.ratio)
 
-        self.ratio = self.in_channels / self.num_of_nodes
+        self.gru1 = GRU(args.node_feat_dim, args.node_feat_dim, num_layers=1, batch_first=True)
+        self.conv1 = GCNConv(args.node_feat_dim, args.node_feat_dim)
 
-        self.pooling_layer = TopKPooling(self.input_dim, self.ratio)
+        self.gru2 = GRU(args.layer_1_dim, args.layer_1_dim, num_layers=1, batch_first=True)
+        self.conv2 = GCNConv(args.layer_1_dim, args.layer_2_dim)
 
-        self.gru = GRU(input_size = args.input_dim,
-                       hidden_size = args.input_dim,
-                       num_layers = 1)
 
-        self.conv = GCNConv(args.node_feat_dim, args.layer_1_dim)
-        self.conv_layer = GCNConv(in_channels = args.input_dim,
-                                  out_channels = args.input_dim,
-                                  bias = False)
+    def forward(self, data):
+        x, _ = to_dense_batch(data.x, data.batch)
+        adj = to_dense_adj(data.edge_index, batch=data.batch, edge_attr=data.edge_attr)
 
-    def forward(self, X: torch.FloatTensor, edge_index: torch.LongTensor,
-                edge_weight: torch.FloatTensor=None) -> torch.FloatTensor:
-        """
-        Making a forward pass.
+        data_batches = []
+        for i in range(x.shape[0]):
+            edge_index, edge_attr = dense_to_sparse(adj[i, :, :, self.args.edgetype])
+            X_tilde = self.pooling_layer(x[i], edge_index, edge_attr=edge_attr)
+            X_tilde = X_tilde[0][None, :, :]
+            W = self.conv1.weight[None, :, :]
+            X_tilde, W = self.gru1(X_tilde, W)
+            self.conv_layer.weight = torch.nn.Parameter(W.squeeze())
+            out = self.conv1(data.x, data.edge_index, data.edge_weight)
 
-        Arg types:
-            * **X** *(PyTorch Float Tensor)* - Node embedding.
-            * **edge_index** *(PyTorch Long Tensor)* - Graph edge indices.
-            * **edge_weight** *(PyTorch Float Tensor, optional)* - Edge weight vector.
+            W = self.conv2.weight[None, :, :]
+            out, W = self.gru2(out, W)
+            self.conv2.weight = torch.nn.Parameter(W.squeeze())
+            out = self.conv2(out, data.edge_index, data.edge_weight)
+            data_batches.append(out)
 
-        Return types:
-            * **X** *(PyTorch Float Tensor)* - Output matrix for all nodes.
-        """
-        X_tilde = self.pooling_layer(X, edge_index)
-        X_tilde = X_tilde[0][None, :, :]
-        W = self.conv_layer.weight[None, :, :]
-        X_tilde, W = self.gru(X_tilde, W)
-        self.conv_layer.weight = torch.nn.Parameter(W.squeeze())
-        X = self.conv_layer(X, edge_index, edge_weight)
-        return X
+        return torch.stack(data_batches)

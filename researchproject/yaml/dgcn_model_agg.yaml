@@ -5,11 +5,16 @@ model: dgcn_agg
 node_feat_dim: 4
 layer_1_dim: 16
 layer_2_dim: 16
-lstm_dim: 16
+temporal_in_dim: 16
+temporal_out_dim: 16
+temporal_num_layers: 2
+temporal_layer: lstm
 
-num_layers: 2
+clf_in_dim: 16
 fc_1_dim: 16
-fc_2_dim: 3
+fc_2_dim: 16
+out_dim: 3
+
 dropout: 0.5
 
 # training args

@@ -1,22 +1,53 @@
+from torch_geometric.data import Dataset, Data, Batch, DataLoader
 import torch
-from torch_geometric.nn import GCNConv
+from pathlib import Path
 
 
-class Model(torch.nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv = []
-        for i in range(3):
-            self.conv.append(GCNConv(4, 16))
+class TestDataset(Dataset):
+    def __init__(self, root):
+        super().__init__(root=root)
 
-    def forward(self, data):
-        out_list = []
-        for i in range(3):
-            out = self.conv[i](data.x, data.edge_index, edge_weight=data.edge_attr[:, i])
-            out_list.append(out)
-        return torch.cat(out_list, dim=1)
+    def process(self):
+        data_dir = Path(self.processed_dir)
+        data_list = []
+        for date in range(5):
+
+            X = torch.tensor([[0,  1,  2,  3],
+                              [4,  5,  6,  7],
+                              [8,  9,  10, 11],
+                              [12, 13, 14, 15]]
+            )
+            y = torch.tensor([0, 1, 2, 3])
+            e = torch.tensor([[0, 3, 2],
+                              [1, 2, 0]])
+            w = torch.tensor([4, 2, 3])
+
+            X *= date
+            data = Data(x=X, y=y, edge_index=e, edge_attr=w)
+            data_list.append(data)
+            if len(data_list) == 3:
+                batch = Batch.from_data_list(data_list)
+                torch.save(batch, (data_dir / self.processed_file_names[date-2]))
+                data_list.pop(0)
+
+    @property
+    def processed_file_names(self):
+        return ['test', 'test2', 'test3']
+
+    def len(self):
+        return len(self.processed_file_names)
+
+    def get(self, i):
+        data_dir = Path(self.processed_dir)
+        data = torch.load((data_dir / self.processed_file_names[i]))
+        data.seq = data.batch
+        del data.batch
+        return data
 
 
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
-model = Model().to(device)
-assert model.conv[0].weight.is_cuda()
+if __name__ == '__main__':
+    ds = TestDataset(root='E:/test')
+    dl = DataLoader(ds, batch_size=2)
+    for d in dl:
+        print(d.x)
+        d.x.reshape(2, 3, -1, 4)

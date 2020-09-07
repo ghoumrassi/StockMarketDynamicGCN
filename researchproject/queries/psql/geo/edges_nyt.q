@@ -5,7 +5,7 @@
 SELECT
     subsa."ticker" AS "a",
     subsb."ticker" AS "b",
-    COUNT(subsa."ticker") AS "count"
+    COUNT(subsa."ticker") / 2 AS "count"
 FROM summaries
 
 LEFT JOIN companymapper AS mappera

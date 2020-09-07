@@ -29,10 +29,11 @@ class ClassifierLayer(nn.Module):
 
 
 class TemporalLayer(nn.Module):
-    def __init__(self, args, device):
+    def __init__(self, args, device, reshape=True):
         super().__init__()
         self.args = args
         self.device = device
+        self.reshape = reshape
         if args.temporal_layer == 'lstm':
             self.temporal = nn.LSTM(args.temporal_in_dim, args.temporal_out_dim, num_layers=args.temporal_num_layers,
                                     batch_first=True)
@@ -54,12 +55,12 @@ class TemporalLayer(nn.Module):
         )
 
     def forward(self, x, data):
-        batch_size = data.batch.max() + 1
-        seq_len = data.seq.max() + 1
-
-        x = x.reshape(batch_size, seq_len, -1, self.args.temporal_in_dim)
-        x = x.permute(0, 2, 1, 3)
-        x = x.reshape(-1, seq_len, self.args.temporal_in_dim)
+        if self.reshape:
+            batch_size = data.batch.max() + 1
+            seq_len = data.seq.max() + 1
+            x = x.reshape(batch_size, seq_len, -1, self.args.temporal_in_dim)
+            x = x.permute(0, 2, 1, 3)
+            x = x.reshape(-1, seq_len, self.args.temporal_in_dim)
 
         if self.args.temporal_layer == 'lstm':
             self.hidden = self.init_hidden_lstm(x.shape[0])

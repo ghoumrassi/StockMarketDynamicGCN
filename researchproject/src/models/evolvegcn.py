@@ -8,7 +8,7 @@ import torch.nn as nn
 import math
 
 from src.models.utils import Namespace, pad_with_last_val
-from src.models.models import NodePredictionModel
+from src.models.layers import ClassifierLayer
 
 
 class EvolveGCN(nn.Module):
@@ -34,7 +34,7 @@ class EvolveGCN(nn.Module):
         # next layer.
         self.skipfeats = skipfeats
         self.GRCU_layers = []
-        self.clf = NodePredictionModel(args)
+        self.clf = ClassifierLayer(args)
 
         # Makes GRCU_layers: a list of the 3 GRCU layers for each GCN cell
         for i in range(1, len(features)):

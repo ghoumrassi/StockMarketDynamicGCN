@@ -16,7 +16,7 @@ from src.data.utils import create_connection_psql
 class CompanyGraphDatasetGeo(Dataset):
     # data is loaded from 1/1/2009 to present
     def __init__(self, root, features=None, device='cpu', start_date='01/01/2010', end_date='31/12/2100',
-                 periods=1, sequence_length=30, rthreshold=0.01):
+                 periods=1, sequence_length=30, rthreshold=0.01, persistence=30, test=False):
         if features is None:
             features = ('adjVolume', 'adjHigh', 'adjLow')
 
@@ -37,6 +37,8 @@ class CompanyGraphDatasetGeo(Dataset):
         self.periods = periods
         self.seq_len = sequence_length
         self.rthreshold = rthreshold
+        self.persistence = persistence
+        self.test = test
         start_date = dt.datetime.strptime(start_date, '%d/%m/%Y').timestamp()
         end_date = dt.datetime.strptime(end_date, '%d/%m/%Y').timestamp()
         with open((QUERIES / 'psql' / 'get_distinct_dates.q'), 'r') as f:
@@ -52,7 +54,7 @@ class CompanyGraphDatasetGeo(Dataset):
             tickers_results = resultset.fetchall()
 
         self.date_array = np.array([int(date[0]) for date in dates_results])
-        self.date_array_restricted = self.date_array[(self.date_array > start_date) & (self.date_array <= end_date)]
+        self.date_array = self.date_array[(self.date_array > start_date) & (self.date_array <= end_date)]
 
         self.idx_ticker_map = {i: ticker[0] for i, ticker in enumerate(tickers_results)}
         self.ticker_idx_map = {ticker: i for i, ticker in self.idx_ticker_map.items()}
@@ -67,7 +69,8 @@ class CompanyGraphDatasetGeo(Dataset):
         return proc_files
 
     def process(self):
-        return # FOR TESTING: MUST
+        if self.test:
+            return
         data_dir = Path(self.processed_dir)
         data_list = []
         data_range = self.date_array[self.seq_len - 1: -self.periods]
@@ -76,7 +79,7 @@ class CompanyGraphDatasetGeo(Dataset):
         for date in data_range:
             file_names.append(fn_string.format(str(int(date)), str(self.seq_len), str(self.periods), self.feat_id))
         fn_exists = [(data_dir / fn).exists() for fn in file_names]
-        fn_can_skip = [all(fn_exists[i: i+self.seq_len]) for i in range(len(fn_exists))]
+        fn_can_skip = [all(fn_exists[i: i + self.seq_len]) for i in range(len(fn_exists))]
         if all(fn_can_skip[self.seq_len:]):
             return
         for i, date in enumerate(tqdm(data_range, desc="Processing dataset...")):
@@ -87,7 +90,7 @@ class CompanyGraphDatasetGeo(Dataset):
             if i == 0:
                 prev_date = 0
             else:
-                prev_date = self.date_array[i - 1]
+                prev_date = data_range[i - 1]
             if i >= len(self.date_array) - self.periods:
                 continue
             X = self.get_X(date)
@@ -107,15 +110,16 @@ class CompanyGraphDatasetGeo(Dataset):
         print("Done.")
 
     def len(self):
-        return len(self.date_array_restricted)
+        return len(self.date_array)
 
     def get(self, i):
-        date = self.date_array_restricted[i] # maybeee?
+        date = self.date_array[i]  # maybeee?
         data_dir = Path(self.processed_dir)
         data = torch.load(
             (data_dir / f'data_{str(int(date))}_{str(self.seq_len)}_{str(self.periods)}_{self.feat_id}.pt')
         )
         y = data.y.clone()
+        data.r = data.y
         y[data.y < -self.rthreshold] = 0
         y[(data.y >= -self.rthreshold) & (data.y <= self.rthreshold)] = 1
         y[data.y > self.rthreshold] = 2
@@ -125,7 +129,7 @@ class CompanyGraphDatasetGeo(Dataset):
         return data
 
     def get_X(self, date):
-        X = torch.zeros((len(self.ticker_idx_map), len(self.features)+1), device=self.device)
+        X = torch.zeros((len(self.ticker_idx_map), len(self.features) + 1), device=self.device)
         with open((self.query_dir / 'ticker_history.q'), 'r') as f:
             q = f.read().format(additional_columns="".join([f', "{feat}"' for feat in self.features]))
             rs = self.engine.execute(text(q), date=int(date))
@@ -142,7 +146,7 @@ class CompanyGraphDatasetGeo(Dataset):
         future_date = self.date_array[future_date_idx]
         y = torch.zeros((len(self.ticker_idx_map),), device=self.device)
         with open((self.query_dir / 'future_returns.q'), 'r') as f:
-            rs = self.engine.execute(text(f.read()), date=int(future_date))
+            rs = self.engine.execute(text(f.read()), date=int(date), futuredate=int(future_date))
         results = rs.fetchall()
         for ticker, returns in results:
             if not returns:
@@ -152,92 +156,72 @@ class CompanyGraphDatasetGeo(Dataset):
         return y
 
     def get_edges(self, prev_date, date):
+        if self.persistence:
+            epoch_day = 86400
+            start_date = date - (self.persistence * epoch_day)
+        else:
+            start_date = prev_date
+        # NYT
         with open((self.query_dir / 'edges_nyt.q'), 'r') as f:
-            rs = self.engine.execute(text(f.read()), prevdate=int(prev_date), date=int(date))
+            rs = self.engine.execute(text(f.read()), prevdate=int(start_date), date=int(date))
         results_1 = rs.fetchall()
+        # SEC
         with open((self.query_dir / 'edges_sec.q'), 'r') as f:
             rs = self.engine.execute(text(f.read()), prevdate=int(prev_date), date=int(date))
         results_2 = rs.fetchall()
+        # Correlations
         with open((self.query_dir / 'edges_corr.q'), 'r') as f:
             rs = self.engine.execute(text(f.read()), date=int(date))
         results_3 = rs.fetchall()
-        tot_len = len(results_1) + len(results_2) + len(results_3)
+        # Reddit
+        with open((self.query_dir / 'edges_reddit.q'), 'r') as f:
+            rs = self.engine.execute(text(f.read()), prevdate=int(start_date), date=int(date))
+        results_4 = rs.fetchall()
+
+        # Wikidata not returning much data
+        # #Wikidata
+        # with open((self.query_dir / 'edges_wd.q'), 'r') as f:
+        #     rs = self.engine.execute(text(f.read()), prevdate=int(start_date), date=int(date))
+        # results_5 = rs.fetchall()
+        tot_len = len(results_1) + len(results_2) + len(results_3) + len(results_4)
         if tot_len == 0:
             return torch.empty(2, device=self.device), torch.empty(2, device=self.device)
         E = torch.zeros((2, tot_len), dtype=torch.long, device=self.device)
-        W = torch.zeros((tot_len, 3), device=self.device)
+        W = torch.zeros((tot_len, 4), device=self.device)
         i = 0
         prev_edges = {}
-        for a, b, weight in results_1:
-            try:
-                ai = self.ticker_idx_map[a]
-                bi = self.ticker_idx_map[b]
-            except KeyError:
-                continue
-            new_edges = torch.tensor(
-                [[ai, bi]],
-                device=self.device)
-            new_weights = torch.tensor(
-                [weight, 0, 0],
-                device=self.device)
 
-            if str(ai) + " " + str(bi) in prev_edges:
-                idx = prev_edges[str(ai) + " " + str(bi)]
-                W[idx, :] += new_weights
-            else:
-                prev_edges[str(ai) + " " + str(bi)] = i
-                E[:, i] = new_edges
-                W[i, :] = new_weights
-                i += 1
-        for a, b, weight in results_2:
-            try:
-                ai = self.ticker_idx_map[a]
-                bi = self.ticker_idx_map[b]
-            except KeyError:
-                continue
-            new_edges = torch.tensor(
-                [[ai, bi]],
-                device=self.device)
-            new_weights = torch.tensor(
-                [0, weight, 0],
-                device=self.device)
+        E, W, i, prev_edges = self.make_edges(E, W, i, prev_edges, results_1, position=0)
+        E, W, i, prev_edges = self.make_edges(E, W, i, prev_edges, results_2, position=1)
+        E, W, i, prev_edges = self.make_edges(E, W, i, prev_edges, results_3, position=2)
+        E, W, i, prev_edges = self.make_edges(E, W, i, prev_edges, results_4, position=3)
 
-            if str(ai) + " " + str(bi) in prev_edges:
-                idx = prev_edges[str(ai) + " " + str(bi)]
-                W[idx, :] += new_weights
-            else:
-                prev_edges[str(ai) + " " + str(bi)] = i
-                E[:, i] = new_edges
-                W[i, :] = new_weights
-                i += 1
-        for a, b, weight in results_3:
-            try:
-                ai = self.ticker_idx_map[a]
-                bi = self.ticker_idx_map[b]
-            except KeyError:
-                continue
-            new_edges = torch.tensor(
-                [[ai, bi]],
-                device=self.device)
-            new_weights = torch.tensor(
-                [0, 0, weight],
-                device=self.device)
-
-            if str(ai) + " " + str(bi) in prev_edges:
-                idx = prev_edges[str(ai) + " " + str(bi)]
-                W[idx, :] += new_weights
-            else:
-                prev_edges[str(ai) + " " + str(bi)] = i
-                E[:, i] = new_edges
-                W[i, :] = new_weights
-                i += 1
-
-        E = E[:, : i]
+        E = E[:, :i]
         E = torch.cat((E, E.flip(dims=(0,))), dim=1)
-        W = W[: i, :]
+        W = W[:i, :]
         W = torch.cat((W, W), dim=0)
 
         return E, W
+
+    def make_edges(self, E, W, i, prev_edges, results, position):
+        for a, b, weight in results:
+            try:
+                ai = self.ticker_idx_map[a]
+                bi = self.ticker_idx_map[b]
+            except KeyError:
+                continue
+            new_edges = torch.tensor([[ai, bi]], device=self.device)
+            new_weights = torch.tensor([0, 0, 0, 0], device=self.device)
+            new_weights[position] = weight
+            if str(ai) + " " + str(bi) in prev_edges:
+                idx = prev_edges[str(ai) + " " + str(bi)]
+                W[idx, :] += new_weights
+            else:
+                prev_edges[str(ai) + " " + str(bi)] = i
+                E[:, i] = new_edges
+                W[i, :] = new_weights
+                i += 1
+        return E, W, i, prev_edges
 
     @staticmethod
     def collate(data_list):
@@ -278,6 +262,6 @@ class CompanyGraphDatasetGeo(Dataset):
 
 
 if __name__ == "__main__":
-    ds = CompanyGraphDatasetGeo(root=GEO_DATA)
+    ds = CompanyGraphDatasetGeo(root=GEO_DATA, start_date='01/01/2013', periods=3)
     for i in range(5):
         print(ds[i])
