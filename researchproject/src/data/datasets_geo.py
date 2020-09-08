@@ -73,7 +73,7 @@ class CompanyGraphDatasetGeo(Dataset):
             return
         data_dir = Path(self.processed_dir)
         data_list = []
-        data_range = self.date_array[self.seq_len - 1: -self.periods]
+        data_range = self.date_array[self.seq_len - 1: -self.periods - 1]
         file_names = []
         for date in data_range:
             fn = '_'.join(
