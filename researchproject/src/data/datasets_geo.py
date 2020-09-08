@@ -265,6 +265,7 @@ class CompanyGraphDatasetGeo(Dataset):
 
 
 if __name__ == "__main__":
-    ds = CompanyGraphDatasetGeo(root=GEO_DATA, periods=3)
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    ds = CompanyGraphDatasetGeo(root=GEO_DATA, periods=3, device=device)
     for i in range(5):
         print(ds[i])
