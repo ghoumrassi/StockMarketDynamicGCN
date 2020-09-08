@@ -29,7 +29,7 @@ from src.models.utils import get_ce_weights
 
 
 class ModelTrainer:
-    def __init__(self, args, log=True):
+    def __init__(self, args, log=True, test=False):
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.args = args
         # if args.model == 'egcn':
@@ -84,13 +84,14 @@ class ModelTrainer:
         self.current_iteration = None
         self.returns_threshold = args.returns_threshold
         self.phase = None
+        self.test = test
 
         if args.size == 'small':
             self.dates = {
                 # 'train_start': '01/01/2010', 'train_end': '30/06/2010',
-                'train_start': '01/07/2009', 'train_end': '01/10/2009',
-                'val_start': '01/06/2010', 'val_end': '30/09/2010',
-                'test_start': '01/09/2010', 'test_end': '31/12/2010'}
+                'train_start': '01/07/2012', 'train_end': '01/10/2012',
+                'val_start': '01/06/2013', 'val_end': '30/09/2013',
+                'test_start': '01/09/2013', 'test_end': '31/12/2013'}
         elif args.size == 'medium':
             self.dates = {
                 'train_start': '01/01/2011', 'train_end': '31/12/2011',
@@ -134,15 +135,15 @@ class ModelTrainer:
         if self.args.dataset == 'main':
             self.train_data = CompanyGraphDatasetGeo(
                 GEO_DATA, self.features, start_date=self.dates['train_start'], end_date=self.dates['train_end'],
-                device=self.device, rthreshold=self.returns_threshold
+                device=self.device, rthreshold=self.returns_threshold, test=self.test, periods=self.predict_periods
             )
             self.val_data = CompanyGraphDatasetGeo(
                 GEO_DATA, self.features, start_date=self.dates['val_start'], end_date=self.dates['val_end'],
-                device=self.device, rthreshold=self.returns_threshold
+                device=self.device, rthreshold=self.returns_threshold, test=self.test, periods=self.predict_periods
             )
             self.test_data = CompanyGraphDatasetGeo(
                 GEO_DATA, self.features, start_date=self.dates['test_start'], end_date=self.dates['test_end'],
-                device=self.device, rthreshold=self.returns_threshold
+                device=self.device, rthreshold=self.returns_threshold, test=self.test, periods=self.predict_periods
             )
             self.train_loader = GeoDataLoader(self.train_data, batch_size=self.batch_size, shuffle=False)
             self.val_loader = GeoDataLoader(self.val_data, batch_size=self.batch_size, shuffle=False)
@@ -288,12 +289,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('yaml', default=None, help="Filename for model arguments.")
     parser.add_argument('--load', "-l", dest="load_model", default=None, help="Filename for saved model information.")
-    parser.add_argument('--no-log', dest="log", action='store_false', help="Enables logging of training metrics")
+    parser.add_argument('--no-log', dest="log", action='store_false', help="Disables logging of training metrics")
+    parser.add_argument('--test', dest="test", action='store_true', help="Testing mode: dataset will not be processed")
     arg = parser.parse_args()
 
     args = Args((MODEL_ARGS / arg.yaml))
     args.load_model = arg.load_model
 
-    trainer = ModelTrainer(args, arg.log)
+    trainer = ModelTrainer(args, arg.log, arg.test)
 
     trainer.run()

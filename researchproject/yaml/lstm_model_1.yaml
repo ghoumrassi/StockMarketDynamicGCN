@@ -21,12 +21,12 @@ skipfeats: false
 epochs: 10
 returns_threshold: 0.005
 batchsize: 2
-edgetype: 1
+edgetype: 3
 
 # dataset args
 dataset: main
 seq_length: 30
-predict_periods: 1
+predict_periods: 3
 features:
   - adjVolume
   - adjHigh
