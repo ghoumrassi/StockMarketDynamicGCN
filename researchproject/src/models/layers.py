@@ -7,7 +7,6 @@ from torch_geometric.utils import to_dense_batch
 from src.models import evolvegcn
 
 
-
 class ClassifierLayer(nn.Module):
     def __init__(self, args):
         super().__init__()
@@ -38,10 +37,18 @@ class TemporalLayer(nn.Module):
             self.temporal = nn.LSTM(args.temporal_in_dim, args.temporal_out_dim, num_layers=args.temporal_num_layers,
                                     batch_first=True)
         elif args.temporal_layer == 'gru':
-            self.temporal = nn.LSTM(args.temporal_in_dim, args.temporal_out_dim, num_layers=args.temporal_num_layers,
-                                    batch_first=True)
+            self.temporal = nn.GRU(args.temporal_in_dim, args.temporal_out_dim, num_layers=args.temporal_num_layers,
+                                   batch_first=True)
+        elif args.temporal_layer == 'cnn':
+            self.temporal = nn.ModuleList(
+                [
+                    nn.Conv2d(in_channels=1, out_channels=args.num_filters, kernel_size=(fs, args.temporal_in_dim))
+                    for fs in args.filter_sizes
+                ]
+            )
         else:
-            raise NotImplementedError("Only lstm or gru currently.")
+            raise NotImplementedError("Only lstm, gru or cnn.")
+
         self.dropout = nn.Dropout(args.dropout)
 
     def init_hidden_lstm(self, batch_size):
@@ -64,11 +71,19 @@ class TemporalLayer(nn.Module):
 
         if self.args.temporal_layer == 'lstm':
             self.hidden = self.init_hidden_lstm(x.shape[0])
+            out, _ = self.temporal(x, self.hidden)
+            out = out[:, -1, :]
+        elif self.args.temporal_layer == 'gru':
+            out, _ = self.temporal(x)
+            out = out[:, -1, :]
+        elif self.args.temporal_layer == 'cnn':
+            out = x.unsqueeze(1)
+            conved = [F.relu(conv(out)).squeeze(3) for conv in self.temporal]
+            pooled = [F.max_pool1d(conv, conv.shape[2]).squeeze(2) for conv in conved]
+            out = torch.cat(pooled, dim=1)
         else:
             raise NotImplementedError()
 
-        out, _ = self.temporal(x, self.hidden)
-        out = out[:, -1, :]
         out = self.dropout(out)
         return out
 

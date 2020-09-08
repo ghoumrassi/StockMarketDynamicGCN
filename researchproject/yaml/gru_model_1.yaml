@@ -1,0 +1,39 @@
+# Model type
+model: lstm
+
+# Model options
+temporal_layer: gru
+temporal_in_dim: 1
+temporal_out_dim: 128
+temporal_num_layers: 2
+clf_in_dim: 128
+fc_1_dim: 64
+fc_2_dim: 32
+out_dim: 3
+dropout: 0.5
+
+# training args
+optimizer: sgd
+optim_args:
+  lr: 0.001
+  momentum: 0.9
+skipfeats: false
+epochs: 10
+returns_threshold: 0.005
+batchsize: 2
+edgetype: 3
+
+# dataset args
+dataset: main
+seq_length: 30
+predict_periods: 3
+features:
+  - adjVolume
+  - adjHigh
+  - adjLow
+
+# misc
+timeout: 10000
+size: small
+plot: false
+file: evolvegcn.out
