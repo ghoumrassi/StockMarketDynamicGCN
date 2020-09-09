@@ -66,7 +66,7 @@ def get_reddit_mentions(db):
 
 
 def get_company_terms(engine):
-    rs = engine.execute("""SELECT DISTINCT "Symbol" FROM nasdaq100""")
+    rs = engine.execute("""SELECT DISTINCT ticker FROM top_by_volume""")
     results = rs.fetchall()
     ticker_list = [result[0] for result in results]
 

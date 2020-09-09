@@ -20,13 +20,13 @@ ON mappera."company" = subsa."altLabel"
 LEFT JOIN subsidiaries AS subsb
 ON mapperb."company" = subsb."altLabel"
 
--- Restricts to NASDAQ100 companies
-INNER JOIN nasdaq100 as nd
+-- Restricts to Top companies
+INNER JOIN top_by_volume as top
 ON
-	subsa."ticker" = nd."Symbol"
-INNER JOIN nasdaq100 as nd2
+	subsa."ticker" = top."ticker"
+INNER JOIN top_by_volume as top2
 ON
-	subsb."ticker" = nd2."Symbol"
+	subsb."ticker" = top2."ticker"
 
 WHERE
     subsa."exchangeLabel" = 'NASDAQ'

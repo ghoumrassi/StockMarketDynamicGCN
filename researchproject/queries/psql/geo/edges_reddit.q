@@ -1,12 +1,12 @@
 SELECT "a", "b", CAST(SUM(count) as int) FROM reddit_mentions
 
--- Restricts to NASDAQ100 companies
-INNER JOIN nasdaq100 AS nd
+-- Restricts to Top companies
+INNER JOIN top_by_volume as top
 ON
-	reddit_mentions."a" = nd."Symbol"
-INNER JOIN nasdaq100 AS nd2
+	subsa."ticker" = top."ticker"
+INNER JOIN top_by_volume as top2
 ON
-	reddit_mentions."b" = nd2."Symbol"
+	subsb."ticker" = top2."ticker"
 
 WHERE "date" <= :date
 AND "date" > :prevdate

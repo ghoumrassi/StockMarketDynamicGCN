@@ -16,7 +16,7 @@ from src.data.utils import create_connection_psql
 class CompanyGraphDatasetGeo(Dataset):
     # data is loaded from 1/1/2009 to present
     def __init__(self, root, features=None, device='cpu', start_date='01/01/2010', end_date='31/12/2100',
-                 periods=1, sequence_length=30, rthreshold=0.01, persistence=30, test=False):
+                 periods=1, sequence_length=30, rthreshold=0.01, persistence=30, test=False, simplify=False):
         if features is None:
             features = ('adjVolume', 'adjHigh', 'adjLow')
 
@@ -39,6 +39,7 @@ class CompanyGraphDatasetGeo(Dataset):
         self.rthreshold = rthreshold
         self.persistence = persistence
         self.test = test
+        self.simplify = simplify
         start_date = dt.datetime.strptime(start_date, '%d/%m/%Y').timestamp()
         end_date = dt.datetime.strptime(end_date, '%d/%m/%Y').timestamp()
         with open((QUERIES / 'psql' / 'get_distinct_dates.q'), 'r') as f:
@@ -172,21 +173,27 @@ class CompanyGraphDatasetGeo(Dataset):
         with open((self.query_dir / 'edges_sec.q'), 'r') as f:
             rs = self.engine.execute(text(f.read()), prevdate=int(prev_date), date=int(date))
         results_2 = rs.fetchall()
-        # Correlations
-        with open((self.query_dir / 'edges_corr.q'), 'r') as f:
-            rs = self.engine.execute(text(f.read()), date=int(date))
-        results_3 = rs.fetchall()
-        # Reddit
-        with open((self.query_dir / 'edges_reddit.q'), 'r') as f:
-            rs = self.engine.execute(text(f.read()), prevdate=int(start_date), date=int(date))
-        results_4 = rs.fetchall()
 
-        # Wikidata not returning much data
-        # #Wikidata
-        # with open((self.query_dir / 'edges_wd.q'), 'r') as f:
-        #     rs = self.engine.execute(text(f.read()), prevdate=int(start_date), date=int(date))
-        # results_5 = rs.fetchall()
-        tot_len = len(results_1) + len(results_2) + len(results_3) + len(results_4)
+        if not simplify:
+            # Correlations
+            with open((self.query_dir / 'edges_corr.q'), 'r') as f:
+                rs = self.engine.execute(text(f.read()), date=int(date))
+            results_3 = rs.fetchall()
+            # Reddit
+            with open((self.query_dir / 'edges_reddit.q'), 'r') as f:
+                rs = self.engine.execute(text(f.read()), prevdate=int(start_date), date=int(date))
+            results_4 = rs.fetchall()
+
+            # Wikidata not returning much data
+            # #Wikidata
+            # with open((self.query_dir / 'edges_wd.q'), 'r') as f:
+            #     rs = self.engine.execute(text(f.read()), prevdate=int(start_date), date=int(date))
+            # results_5 = rs.fetchall()
+        if self.simplify:
+            tot_len = len(results_1) + len(results_2)
+        else:
+            tot_len = len(results_1) + len(results_2) + len(results_3) + len(results_4)
+
         if tot_len == 0:
             return torch.empty(2, device=self.device), torch.empty(2, device=self.device)
         E = torch.zeros((2, tot_len), dtype=torch.long, device=self.device)
@@ -196,8 +203,9 @@ class CompanyGraphDatasetGeo(Dataset):
 
         E, W, i, prev_edges = self.make_edges(E, W, i, prev_edges, results_1, position=0)
         E, W, i, prev_edges = self.make_edges(E, W, i, prev_edges, results_2, position=1)
-        E, W, i, prev_edges = self.make_edges(E, W, i, prev_edges, results_3, position=2)
-        E, W, i, prev_edges = self.make_edges(E, W, i, prev_edges, results_4, position=3)
+        if not self.simplify:
+            E, W, i, prev_edges = self.make_edges(E, W, i, prev_edges, results_3, position=2)
+            E, W, i, prev_edges = self.make_edges(E, W, i, prev_edges, results_4, position=3)
 
         E = E[:, :i]
         E = torch.cat((E, E.flip(dims=(0,))), dim=1)
@@ -266,6 +274,6 @@ class CompanyGraphDatasetGeo(Dataset):
 
 if __name__ == "__main__":
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    ds = CompanyGraphDatasetGeo(root=GEO_DATA, periods=3, device=device)
+    ds = CompanyGraphDatasetGeo(root=GEO_DATA, periods=3, device=device, simplify=True)
     for i in range(5):
         print(ds[i])
