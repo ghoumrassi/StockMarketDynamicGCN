@@ -99,7 +99,7 @@ class ModelTrainer:
                 'test_start': '01/01/2012', 'test_end': '31/12/2012'}
         elif args.size == 'large':
             self.dates = {
-                'train_start': '01/01/2010', 'train_end': '31/12/2016',
+                'train_start': '01/06/2010', 'train_end': '31/12/2016',
                 'val_start': '30/09/2016', 'val_end': '31/12/2017',
                 'test_start': '30/09/2017', 'test_end': '31/12/2018'}
         else:
@@ -185,9 +185,9 @@ class ModelTrainer:
                     self.optimizer.step()
 
                 acc.append(self.get_accuracy(y_true, y_pred))
-                f1.append(self.get_score(f1_score, y_true, y_pred, average='micro'))
-                prec.append(self.get_score(precision_score, y_true, y_pred, average='micro'))
-                rec.append(self.get_score(recall_score, y_true, y_pred, average='micro'))
+                f1.append(self.get_score(f1_score, y_true, y_pred, average='weighted'))
+                prec.append(self.get_score(precision_score, y_true, y_pred, average='weighted'))
+                rec.append(self.get_score(recall_score, y_true, y_pred, average='weighted'))
                 profit.append(self.get_profit(data.r.view(self.batch_size, self.sequence_length, -1), y_pred))
                 running_loss += loss.item()
                 mean_loss = running_loss / (i + 1)

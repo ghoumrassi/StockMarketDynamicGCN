@@ -39,7 +39,7 @@ FUZZY_STOP_FILE = Path(resource_filename(__name__, '../misc/company_stopwords.tx
 # Pickle containing last run file info
 EDG_SAVE = Path(resource_filename(__name__, '../misc/edgar.p'))
 
-''' Queries '''
+''' Queries Directory '''
 QUERIES = Path(resource_filename(__name__, '../queries'))
 
 ''' sqlite Database '''
@@ -47,6 +47,9 @@ SQLITE_DB = Path(resource_filename(__name__, '../data/projectdata.db'))
 
 ''' PostgreSQL Database '''
 PG_CREDENTIALS = Path(resource_filename(__name__, '../misc/pg_creds.json'))
+
+''' Figures Directory '''
+FIGURES = Path(resource_filename(__name__, '../figures'))
 
 ''' Reddit Credentials '''
 REDDIT_CREDENTIALS = Path(resource_filename(__name__, '../misc/reddit_creds.json'))
