@@ -6,7 +6,7 @@ SELECT ticker, returns{additional_columns} FROM tickerdata
 -- Restricts to Top companies
 INNER JOIN top_by_volume as top
 ON
-	ticker = top."ticker"
+	tickerdata."ticker" = top."ticker"
 
 WHERE
     date = :date
