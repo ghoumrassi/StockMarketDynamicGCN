@@ -12,4 +12,4 @@ WHERE
     date > :date
 AND
     date <= :futuredate
-GROUP BY ticker
+GROUP BY tickerdata."ticker"
