@@ -1,12 +1,12 @@
 SELECT ticker_x, ticker_y, "jointOwnership" FROM sec_jointownership
 
--- Restricts to Top companies
+-- Restricts to NASDAQ100 companies
 INNER JOIN top_by_volume as top
 ON
-	sec_jointownership."ticker" = top."ticker"
+	sec_jointownership."ticker_x" = top."Symbol"
 INNER JOIN top_by_volume as top2
 ON
-	sec_jointownership."ticker" = top2."ticker"
+	sec_jointownership."ticker_y" = top2."Symbol"
 
 WHERE "jointOwnership" != 0
 AND "relStart" <= :date
