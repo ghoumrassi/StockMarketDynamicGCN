@@ -174,7 +174,7 @@ class CompanyGraphDatasetGeo(Dataset):
             rs = self.engine.execute(text(f.read()), prevdate=int(prev_date), date=int(date))
         results_2 = rs.fetchall()
 
-        if not simplify:
+        if not self.simplify:
             # Correlations
             with open((self.query_dir / 'edges_corr.q'), 'r') as f:
                 rs = self.engine.execute(text(f.read()), date=int(date))
