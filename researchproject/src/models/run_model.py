@@ -84,13 +84,17 @@ class ModelTrainer:
         self.returns_threshold = args.returns_threshold
         self.phase = None
         self.test = test
+        if 'conv_first' in args.__dict__:
+            self.conv_first = args.conv_first
+        else:
+            self.conv_first = True
 
         if args.size == 'small':
             self.dates = {
                 # 'train_start': '01/01/2010', 'train_end': '30/06/2010',
-                'train_start': '01/07/2012', 'train_end': '01/10/2012',
-                'val_start': '01/06/2013', 'val_end': '30/09/2013',
-                'test_start': '01/09/2013', 'test_end': '31/12/2013'}
+                'train_start': '01/06/2010', 'train_end': '01/06/2011',
+                'val_start': '01/06/2010', 'val_end': '01/06/2011',
+                'test_start': '01/06/2010', 'test_end': '01/06/2011'}
         elif args.size == 'medium':
             self.dates = {
                 'train_start': '01/01/2011', 'train_end': '31/12/2011',
@@ -135,17 +139,17 @@ class ModelTrainer:
             self.train_data = CompanyGraphDatasetGeo(
                 GEO_DATA, self.features, start_date=self.dates['train_start'], end_date=self.dates['train_end'],
                 device=self.device, rthreshold=self.returns_threshold, test=self.test, periods=self.predict_periods,
-                edgetypes=self.args.edgetypes
+                edgetypes=self.args.edgetypes, conv_first=self.conv_first
             )
             self.val_data = CompanyGraphDatasetGeo(
                 GEO_DATA, self.features, start_date=self.dates['val_start'], end_date=self.dates['val_end'],
                 device=self.device, rthreshold=self.returns_threshold, test=self.test, periods=self.predict_periods,
-                edgetypes=self.args.edgetypes
+                edgetypes=self.args.edgetypes, conv_first=self.conv_first
             )
             self.test_data = CompanyGraphDatasetGeo(
                 GEO_DATA, self.features, start_date=self.dates['test_start'], end_date=self.dates['test_end'],
                 device=self.device, rthreshold=self.returns_threshold, test=self.test, periods=self.predict_periods,
-                edgetypes=self.args.edgetypes
+                edgetypes=self.args.edgetypes, conv_first=self.conv_first
             )
             self.train_loader = GeoDataLoader(self.train_data, batch_size=self.batch_size, shuffle=False)
             self.val_loader = GeoDataLoader(self.val_data, batch_size=self.batch_size, shuffle=False)
@@ -173,12 +177,13 @@ class ModelTrainer:
                 self.current_iteration = i
                 self.model.zero_grad()
 
-                try:
+                if self.conv_first:
                     y_true = data.y.view(self.batch_size, self.sequence_length, -1)
-                except:
-                    print("Error")
-                    continue
-                y_true = y_true[:, -1, :].long()
+                    y_true = y_true[:, -1, :].long()
+                    r = data.r.view(self.batch_size, self.sequence_length, -1)
+                else:
+                    y_true = data.y.view(self.batch_size, -1).long()
+                    r = data.r.view(self.batch_size, -1)
                 y_pred = self.model(data)
                 loss = self.criterion(y_pred.view(-1, 3), y_true.view(-1))
 
@@ -190,7 +195,7 @@ class ModelTrainer:
                 f1.append(self.get_score(f1_score, y_true, y_pred, average='weighted'))
                 prec.append(self.get_score(precision_score, y_true, y_pred, average='weighted'))
                 rec.append(self.get_score(recall_score, y_true, y_pred, average='weighted'))
-                profit.append(self.get_profit(data.r.view(self.batch_size, self.sequence_length, -1), y_pred))
+                profit.append(self.get_profit(r, y_pred))
                 running_loss += loss.item()
                 mean_loss = running_loss / (i + 1)
                 mean_loss_hist.append(mean_loss)
@@ -263,7 +268,10 @@ class ModelTrainer:
             return score(true.cpu(), torch.argmax(predictions, dim=1).cpu(), **kwargs)
 
     def get_profit(self, returns, predictions):
-        returns = returns[:, -1, :].reshape(-1)
+        if self.conv_first:
+            returns = returns[:, -1, :].reshape(-1)
+        else:
+            returns = returns.reshape(-1)
         predictions = torch.argmax(predictions.reshape(-1, 3), dim=1)
         return returns[predictions == 2].mean().item()
 

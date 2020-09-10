@@ -11,3 +11,4 @@ ON
 WHERE
     date = :date
 
+AND "30-day" IS NOT NULL

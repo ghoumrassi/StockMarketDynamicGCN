@@ -12,4 +12,6 @@ WHERE
     date > :date
 AND
     date <= :futuredate
+AND "30-day" IS NOT NULL
+
 GROUP BY tickerdata."ticker"

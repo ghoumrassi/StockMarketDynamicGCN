@@ -44,30 +44,24 @@ class DGCN2(nn.Module):
     def __init__(self, args, device):
         super().__init__()
         self.args = args
-        self.temporal = TemporalLayer(args, device=device)
-        self.conv1 = DenseGCNConv(args.temporal_out_dim, args.layer_1_dim)
-        self.conv2 = DenseGCNConv(args.layer_1_dim, args.layer_2_dim)
+        self.device = device
+        self.temporal = TemporalLayer(args, device=device, reshape=False)
+        self.conv1 = GCNConv(args.temporal_out_dim, args.layer_1_dim)
+        self.conv2 = GCNConv(args.layer_1_dim, args.layer_2_dim)
         self.clf = ClassifierLayer(args)
 
         self.dropout = nn.Dropout(args.dropout)
 
     def forward(self, data):
-        x = normalize(data.x)
-        edge_attr = data.edge_attr[:, self.args.edgetype].abs()
+        x = data.x
+        # x = normalize(data.x)
+        edge_attr = data.edge_attr.abs().squeeze()
 
         out = self.temporal(x, data)
-
-        adj = to_dense_adj(data.edge_index, batch=data.batch, edge_attr=edge_attr)
-        l = []
-        for batch in adj:
-            edge_index, edge_attr = dense_to_sparse(batch)
-            l.append(to_dense_adj(edge_index, batch=data.seq, edge_attr=edge_attr)[-1])
-        adj = torch.stack(l)
-
-        out = self.conv1(out, adj=adj)
+        out = self.conv1(out, data.edge_index, edge_weight=edge_attr)
         out = F.relu(out)
         out = self.dropout(out)
-        out = self.conv2(out, adj=adj)
+        out = self.conv1(out, data.edge_index, edge_weight=edge_attr)
         out = F.relu(out)
         out = self.dropout(out)
         out = self.clf(out)

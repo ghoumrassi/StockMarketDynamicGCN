@@ -1,5 +1,6 @@
 # Model type
 model: dgcn2
+conv_first: false
 
 # Model options
 node_feat_dim: 4
@@ -27,12 +28,13 @@ skipfeats: false
 epochs: 10
 returns_threshold: 0.01
 batchsize: 2
-edgetype: 2
+edgetypes:
+  - 0
 
 # dataset args
 dataset: main
 seq_length: 30
-predict_periods: 1
+predict_periods: 3
 features:
   - adjVolume
   - adjHigh
