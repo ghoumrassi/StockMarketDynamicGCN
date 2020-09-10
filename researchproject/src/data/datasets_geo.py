@@ -132,7 +132,7 @@ class CompanyGraphDatasetGeo(Dataset):
         data.y = y
         #TODO: This removes the ability to use more than one feature
         data.x = data.x[:, 0].unsqueeze(1)
-        data.edge_attr = data.edge_attr[:, list(self.edgetypes)]
+        data.edge_attr = data.edge_attr[:, list(self.edgetypes)].unsqueeze(1)
         data.seq = data.batch
         del data.batch
         return data
