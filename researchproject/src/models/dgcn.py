@@ -26,6 +26,9 @@ class DGCN(nn.Module):
 
         batch_size = data.batch.max() + 1
         seq_len = data.seq.max() + 1
+        print(x.shape)
+        print(data.edge_index.shape)
+        print(edge_attr.shape)
         out = self.conv1(x, data.edge_index, edge_weight=edge_attr)
         out = F.relu(out)
         out = self.dropout(out)
