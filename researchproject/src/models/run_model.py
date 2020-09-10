@@ -234,8 +234,8 @@ class ModelTrainer:
         torch.save(state, fn)
 
     def load_checkpoint(self, model, fn):
-        checkpoint = torch.load(fn)
-        model = model.load_state_dict(checkpoint)
+        model = torch.load(fn)
+        # model = model.load_state_dict(checkpoint)
         return model
 
     def log_metrics(self, data):
