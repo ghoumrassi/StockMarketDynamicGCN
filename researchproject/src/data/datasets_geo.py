@@ -16,7 +16,8 @@ from src.data.utils import create_connection_psql
 class CompanyGraphDatasetGeo(Dataset):
     # data is loaded from 1/1/2009 to present
     def __init__(self, root, features=None, device='cpu', start_date='01/01/2010', end_date='31/12/2100',
-                 periods=1, sequence_length=30, rthreshold=0.01, persistence=30, test=False, simplify=False):
+                 periods=1, sequence_length=30, rthreshold=0.01, persistence=30, test=False, simplify=False,
+                 edgetypes=(0,)):
         if features is None:
             features = ('adjVolume', 'adjHigh', 'adjLow')
 
@@ -40,6 +41,7 @@ class CompanyGraphDatasetGeo(Dataset):
         self.persistence = persistence
         self.test = test
         self.simplify = simplify
+        self.edgetypes = edgetypes
         start_date = dt.datetime.strptime(start_date, '%d/%m/%Y').timestamp()
         end_date = dt.datetime.strptime(end_date, '%d/%m/%Y').timestamp()
         with open((QUERIES / 'psql' / 'get_distinct_dates.q'), 'r') as f:
@@ -128,6 +130,9 @@ class CompanyGraphDatasetGeo(Dataset):
         y[(data.y >= -self.rthreshold) & (data.y <= self.rthreshold)] = 1
         y[data.y > self.rthreshold] = 2
         data.y = y
+        #TODO: This removes the ability to use more than one feature
+        data.x = data.x[:, 0].unsqueeze(1)
+        data.edge_attr = data.edge_attr[:, list(self.edgetypes)]
         data.seq = data.batch
         del data.batch
         return data

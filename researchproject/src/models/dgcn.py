@@ -20,15 +20,12 @@ class DGCN(nn.Module):
         self.dropout = nn.Dropout(args.dropout)
 
     def forward(self, data):
-        x = data.x[:, 0].unsqueeze(1)
+        x = data.x
         # x = normalize(data.x)
-        edge_attr = data.edge_attr[:, self.args.edgetype].abs()
+        edge_attr = data.edge_attr.abs()
 
         batch_size = data.batch.max() + 1
         seq_len = data.seq.max() + 1
-        print(x.shape)
-        print(data.edge_index.shape)
-        print(edge_attr.shape)
         out = self.conv1(x, data.edge_index, edge_weight=edge_attr)
         out = F.relu(out)
         out = self.dropout(out)

@@ -134,15 +134,18 @@ class ModelTrainer:
         if self.args.dataset == 'main':
             self.train_data = CompanyGraphDatasetGeo(
                 GEO_DATA, self.features, start_date=self.dates['train_start'], end_date=self.dates['train_end'],
-                device=self.device, rthreshold=self.returns_threshold, test=self.test, periods=self.predict_periods
+                device=self.device, rthreshold=self.returns_threshold, test=self.test, periods=self.predict_periods,
+                edgetypes=self.args.edgetypes
             )
             self.val_data = CompanyGraphDatasetGeo(
                 GEO_DATA, self.features, start_date=self.dates['val_start'], end_date=self.dates['val_end'],
-                device=self.device, rthreshold=self.returns_threshold, test=self.test, periods=self.predict_periods
+                device=self.device, rthreshold=self.returns_threshold, test=self.test, periods=self.predict_periods,
+                edgetypes=self.args.edgetypes
             )
             self.test_data = CompanyGraphDatasetGeo(
                 GEO_DATA, self.features, start_date=self.dates['test_start'], end_date=self.dates['test_end'],
-                device=self.device, rthreshold=self.returns_threshold, test=self.test, periods=self.predict_periods
+                device=self.device, rthreshold=self.returns_threshold, test=self.test, periods=self.predict_periods,
+                edgetypes=self.args.edgetypes
             )
             self.train_loader = GeoDataLoader(self.train_data, batch_size=self.batch_size, shuffle=False)
             self.val_loader = GeoDataLoader(self.val_data, batch_size=self.batch_size, shuffle=False)
