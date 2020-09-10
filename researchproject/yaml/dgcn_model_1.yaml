@@ -2,7 +2,7 @@
 model: dgcn
 
 # Model options
-node_feat_dim: 4
+node_feat_dim: 1
 layer_1_dim: 16
 layer_2_dim: 16
 
@@ -33,10 +33,7 @@ edgetype: 2
 dataset: main
 seq_length: 30
 predict_periods: 1
-features:
-  - adjVolume
-  - adjHigh
-  - adjLow
+features: null
 
 # misc
 timeout: 10000

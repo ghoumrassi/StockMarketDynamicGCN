@@ -21,8 +21,6 @@ class DGCN(nn.Module):
 
     def forward(self, data):
         x = data.x
-        if len(x.size()) == 1:
-            x = x.unsqueeze(1)
         # x = normalize(data.x)
         edge_attr = data.edge_attr[:, self.args.edgetype].abs()
 
