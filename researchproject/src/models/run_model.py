@@ -60,9 +60,8 @@ class ModelTrainer:
         self.timeout = args.timeout
 
         if args.load_model:
-            # TODO: Make checkpoint loading function
-            self.start_epoch = args.load_model.start_epoch
-            self.load_checkpoint(self.model, args.load_model.gcn_checkpoint)
+            self.start_epoch = int(input("Start epoch: "))
+            self.load_checkpoint(self.model, (MODEL_SAVE_DIR / args.load_model))
 
         if self.device == "cuda:0":
             torch.backends.cudnn.deterministic = True

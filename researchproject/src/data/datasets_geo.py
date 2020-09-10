@@ -224,11 +224,11 @@ class CompanyGraphDatasetGeo(Dataset):
             new_edges = torch.tensor([[ai, bi]], device=self.device)
             new_weights = torch.tensor([0, 0, 0, 0], device=self.device)
             new_weights[position] = weight
-            if str(ai) + " " + str(bi) in prev_edges:
-                idx = prev_edges[str(ai) + " " + str(bi)]
+            if (ai, bi) in prev_edges:
+                idx = prev_edges[(ai, bi)]
                 W[idx, :] += new_weights
             else:
-                prev_edges[str(ai) + " " + str(bi)] = i
+                prev_edges[(ai, bi)] = i
                 E[:, i] = new_edges
                 W[i, :] = new_weights
                 i += 1
