@@ -20,7 +20,7 @@ class DGCN(nn.Module):
         self.dropout = nn.Dropout(args.dropout)
 
     def forward(self, data):
-        x = data.x
+        x = data.x[:, 0]
         # x = normalize(data.x)
         edge_attr = data.edge_attr[:, self.args.edgetype].abs()
 
