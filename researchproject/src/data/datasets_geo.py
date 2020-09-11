@@ -148,10 +148,10 @@ class CompanyGraphDatasetGeo(Dataset):
         print("Done.")
 
     def len(self):
-        return len(self.date_array)
+        return len(self.date_array[: -self.periods- 1])
 
     def get(self, i):
-        date = self.date_array[self.seq_len - 1 + i]
+        date = self.date_array[self.seq_len + i]
         data_dir = Path(self.processed_dir)
         fn = '_'.join(
             ['data', str(int(date)), str(self.seq_len), str(self.periods), str(self.persistence), str(self.feat_id)]
