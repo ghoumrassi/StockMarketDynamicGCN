@@ -148,7 +148,7 @@ class CompanyGraphDatasetGeo(Dataset):
         print("Done.")
 
     def len(self):
-        return len(self.date_array[: -self.periods- 1])
+        return len(self.date_array[self.seq_len: -self.periods- 1])
 
     def get(self, i):
         date = self.date_array[self.seq_len + i]
