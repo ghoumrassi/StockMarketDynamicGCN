@@ -1,12 +1,17 @@
 # Model type
-model: temporal
+model: dgcn2
 conv_first: false
 
 # Model options
+node_feat_dim: 6
+
 temporal_layer: gru
 temporal_in_dim: 6
 temporal_num_layers: 2
 temporal_out_dim: 128
+
+layer_1_dim: 128
+layer_2_dim: 128
 
 clf_in_dim: 128
 fc_1_dim: 64
@@ -42,4 +47,4 @@ features:
 timeout: 10000
 size: small
 plot: false
-file: gru.out
+file: dgcn2_cnn.out

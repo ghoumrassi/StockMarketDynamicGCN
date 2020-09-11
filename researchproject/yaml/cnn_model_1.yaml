@@ -1,17 +1,19 @@
 # Model type
-model: lstm
+model: temporal
+conv_first: false
 
 # Model options
 temporal_layer: cnn
+temporal_in_dim: 6
 num_filters: 100
 filter_sizes:
   - 3
-  - 4
-  - 5
-temporal_in_dim: 1
-temporal_out_dim: 128
+  - 7
+  - 15
 temporal_num_layers: 2
-clf_in_dim: 128
+temporal_out_dim: 300
+
+clf_in_dim: 300
 fc_1_dim: 64
 fc_2_dim: 32
 out_dim: 3
@@ -24,21 +26,24 @@ optim_args:
   momentum: 0.9
 skipfeats: false
 epochs: 10
-returns_threshold: 0.005
-batchsize: 2
-edgetype: 3
+returns_threshold: 0.008
+batchsize: 20
+edgetypes:
+  - 0
 
 # dataset args
 dataset: main
-seq_length: 30
+seq_length: 50
 predict_periods: 3
 features:
   - adjVolume
-  - adjHigh
-  - adjLow
+  - 5-day
+  - 10-day
+  - 20-day
+  - 30-day
 
 # misc
 timeout: 10000
 size: small
 plot: false
-file: evolvegcn.out
+file: cnn.out

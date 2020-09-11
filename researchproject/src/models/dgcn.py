@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
-from torch_geometric.nn import GCNConv, DenseGCNConv
+from torch_geometric.nn import GCNConv, GatedGraphConv
 from torch_geometric.utils import to_dense_batch, to_dense_adj, dense_to_sparse
 import pandas as pd
 
@@ -47,6 +47,7 @@ class DGCN2(nn.Module):
         self.temporal = TemporalLayer(args, device=device, reshape=False)
         self.conv1 = GCNConv(args.temporal_out_dim, args.layer_1_dim)
         self.conv2 = GCNConv(args.layer_1_dim, args.layer_2_dim)
+        # self.conv = GatedGraphConv(args.temporal_out_dim, num_layers=2)
         self.clf = ClassifierLayer(args)
 
         self.dropout = nn.Dropout(args.dropout)
@@ -61,6 +62,7 @@ class DGCN2(nn.Module):
         out = F.relu(out)
         out = self.dropout(out)
         out = self.conv2(out, data.edge_index, edge_weight=edge_attr)
+        # out = self.conv(out, data.edge_index, edge_weight=edge_attr)
         out = F.relu(out)
         out = self.dropout(out)
         out = self.clf(out)

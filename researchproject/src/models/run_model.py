@@ -34,7 +34,7 @@ class ModelTrainer:
         self.args = args
         if args.model == 'evolve':
             self.model = Evolve(args)
-        elif args.model == 'lstm':
+        elif args.model == 'temporal':
             self.model = LSTMModel(args, device=self.device)
         elif args.model == 'dgcn':
             self.model = DGCN(args, device=self.device)
@@ -68,7 +68,7 @@ class ModelTrainer:
 
         self.log = log
         if self.log:
-            self.model_name = input("Name current model instance: ")
+            self.model_name = args.name
         self.engine = create_connection_psql(PG_CREDENTIALS)
         self.timestamp = time.time()
         self.sequence_length = args.seq_length
@@ -290,9 +290,11 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('yaml', default=None, help="Filename for model arguments.")
+    parser.add_argument('--name', dest="name", default='model', help="Name of model in model logs.")
     parser.add_argument('--load', "-l", dest="load_model", default=None, help="Filename for saved model information.")
     parser.add_argument('--no-log', dest="log", action='store_false', help="Disables logging of training metrics")
     parser.add_argument('--test', dest="test", action='store_true', help="Testing mode: dataset will not be processed")
+
     arg = parser.parse_args()
 
     args = Args((MODEL_ARGS / arg.yaml))
