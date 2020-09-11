@@ -32,8 +32,6 @@ class ModelTrainer:
     def __init__(self, args, log=True, test=False):
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.args = args
-        # if args.model == 'egcn':
-        #     self.model = EvolveGCN(args, activation=torch.relu, skipfeats=args.skipfeats, device=self.device)
         if args.model == 'evolve':
             self.model = Evolve(args)
         elif args.model == 'lstm':
@@ -45,7 +43,7 @@ class ModelTrainer:
         elif args.model == 'dgcn2':
             self.model = DGCN2(args, device=self.device)
         else:
-            raise NotImplementedError("Only 'egcn' and 'lstm' have been implemented so far.")
+            raise NotImplementedError("The chosen model doesn't exist.")
 
         self.model_file = MODEL_SAVE_DIR / args.file
 
@@ -285,12 +283,6 @@ class Args:
         with open(arg_file, 'r') as f:
             arg_dict = yaml.load(f)
         self.__dict__.update(arg_dict)
-        # self.node_feat_dim = 2
-        # self.layer_1_dim = 200
-        # self.layer_2_dim = 200
-        # self.fc_1_dim = 100
-        # self.fc_2_dim = 3
-        # self.dropout = 0.5
 
 
 if __name__ == "__main__":

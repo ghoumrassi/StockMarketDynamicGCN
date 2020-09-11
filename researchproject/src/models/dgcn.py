@@ -21,7 +21,6 @@ class DGCN(nn.Module):
 
     def forward(self, data):
         x = data.x
-        # x = normalize(data.x)
         edge_attr = data.edge_attr.abs()
 
         batch_size = data.batch.max() + 1
@@ -61,7 +60,7 @@ class DGCN2(nn.Module):
         out = self.conv1(out, data.edge_index, edge_weight=edge_attr)
         out = F.relu(out)
         out = self.dropout(out)
-        out = self.conv1(out, data.edge_index, edge_weight=edge_attr)
+        out = self.conv2(out, data.edge_index, edge_weight=edge_attr)
         out = F.relu(out)
         out = self.dropout(out)
         out = self.clf(out)

@@ -16,7 +16,7 @@ from src.data.utils import create_connection_psql
 class CompanyGraphDatasetGeo(Dataset):
     # data is loaded from 1/1/2009 to present
     def __init__(self, root, features=None, device='cpu', start_date='01/01/2010', end_date='31/12/2100',
-                 periods=1, sequence_length=30, rthreshold=0.01, persistence=300, test=False, simplify=False,
+                 periods=1, sequence_length=30, rthreshold=0.01, persistence=300, test=False, simplify=True,
                  edgetypes=(0,), conv_first=True):
         if features is None:
             features = ('adjVolume', '5-day', '10-day', '20-day', '30-day')
@@ -90,7 +90,7 @@ class CompanyGraphDatasetGeo(Dataset):
             return
         data_dir = Path(self.processed_dir)
         data_list = []
-        data_range = self.date_array[self.seq_len - 1: -self.periods - 1]
+        data_range = self.date_array[: -self.periods - 1]
         file_names = []
         for date in data_range:
             fn = '_'.join(
@@ -103,9 +103,14 @@ class CompanyGraphDatasetGeo(Dataset):
             return
         for i, date in enumerate(tqdm(data_range, desc="Processing dataset...")):
             fn = (data_dir / file_names[i])
+
             if fn_can_skip[i]:
                 data_list = []
                 continue
+            if i < self.seq_len:
+                if all(fn_exists[self.seq_len: self.seq_len + i]):
+                    continue
+
             if i == 0:
                 prev_date = 0
             else:
@@ -146,7 +151,7 @@ class CompanyGraphDatasetGeo(Dataset):
         return len(self.date_array)
 
     def get(self, i):
-        date = self.date_array[i]
+        date = self.date_array[self.seq_len + i]
         data_dir = Path(self.processed_dir)
         fn = '_'.join(
             ['data', str(int(date)), str(self.seq_len), str(self.periods), str(self.persistence), str(self.feat_id)]
@@ -178,10 +183,8 @@ class CompanyGraphDatasetGeo(Dataset):
             ticker_idx = self.ticker_idx_map[ticker]
             norm_args = []
             for i, arg in enumerate(args):
-                if not arg:
-                    input()
                 norm_arg = (arg - self.feature_mins[i]) / (self.feature_maxs[i] - self.feature_mins[i])
-            X[ticker_idx, :] = torch.tensor([returns] + args)
+            X[ticker_idx, :] = torch.tensor([returns] + norm_args)
         return X
 
     def get_y(self, date):
