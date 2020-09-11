@@ -299,6 +299,7 @@ if __name__ == "__main__":
 
     args = Args((MODEL_ARGS / arg.yaml))
     args.load_model = arg.load_model
+    args.name = arg.name
 
     trainer = ModelTrainer(args, arg.log, arg.test)
 
