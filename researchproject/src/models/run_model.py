@@ -183,60 +183,64 @@ class ModelTrainer:
         prec = []
         rec = []
         profit = []
-        with tqdm(loader) as pbar:
-            for i, data in enumerate(pbar):
-                self.current_iteration = i
-                self.model.zero_grad()
+        try:
+            with tqdm(loader) as pbar:
+                for i, data in enumerate(pbar):
+                    self.current_iteration = i
+                    self.model.zero_grad()
 
-                if self.conv_first:
-                    y_true = data.y.view(self.batch_size, self.sequence_length, -1)
-                    y_true = y_true[:, -1, :].long()
-                    r = data.r.view(self.batch_size, self.sequence_length, -1)
-                else:
-                    y_true = data.y.view(self.batch_size, -1).long()
-                    r = data.r.view(self.batch_size, -1)
-                y_pred = self.model(data)
-                loss = self.criterion(y_pred.view(-1, 3), y_true.view(-1))
+                    if self.conv_first:
+                        y_true = data.y.view(self.batch_size, self.sequence_length, -1)
+                        y_true = y_true[:, -1, :].long()
+                        r = data.r.view(self.batch_size, self.sequence_length, -1)
+                    else:
+                        y_true = data.y.view(self.batch_size, -1).long()
+                        r = data.r.view(self.batch_size, -1)
+                    y_pred = self.model(data)
+                    loss = self.criterion(y_pred.view(-1, 3), y_true.view(-1))
 
-                if training:
-                    loss.backward()
-                    self.optimizer.step()
+                    if training:
+                        loss.backward()
+                        self.optimizer.step()
 
-                acc.append(self.get_accuracy(y_true, y_pred))
-                f1.append(self.get_score(f1_score, y_true, y_pred, average='weighted'))
-                prec.append(self.get_score(precision_score, y_true, y_pred, average='weighted'))
-                rec.append(self.get_score(recall_score, y_true, y_pred, average='weighted'))
-                profit.append(self.get_profit(r, y_pred))
-                running_loss += loss.item()
-                mean_loss = running_loss / (i + 1)
-                mean_loss_hist.append(mean_loss)
+                    acc.append(self.get_accuracy(y_true, y_pred))
+                    f1.append(self.get_score(f1_score, y_true, y_pred, average='weighted'))
+                    prec.append(self.get_score(precision_score, y_true, y_pred, average='weighted'))
+                    rec.append(self.get_score(recall_score, y_true, y_pred, average='weighted'))
+                    profit.append(self.get_profit(r, y_pred))
+                    running_loss += loss.item()
+                    mean_loss = running_loss / (i + 1)
+                    mean_loss_hist.append(mean_loss)
 
-                pbar.set_description(
-                    f"Mean loss: {round(mean_loss, 4)}, Mean acc: {round(np.mean(acc), 4)}, "
-                    f"Mean precision: {round(np.mean(prec), 4)}, Mean recall: {round(np.mean(rec), 4)}, "
-                    f"Mean profit: {round(np.mean(profit), 4)}"
-                )
-                if self.device == "cuda:0":
-                    np_preds = y_pred.argmax(dim=1).cpu().numpy()
-                else:
-                    np_preds = y_pred.argmax(dim=1).numpy()
+                    pbar.set_description(
+                        f"Mean loss: {round(mean_loss, 4)}, Mean acc: {round(np.mean(acc), 4)}, "
+                        f"Mean precision: {round(np.mean(prec), 4)}, Mean recall: {round(np.mean(rec), 4)}, "
+                        f"Mean profit: {round(np.mean(profit), 4)}"
+                    )
+                    if self.device == "cuda:0":
+                        np_preds = y_pred.argmax(dim=1).cpu().numpy()
+                    else:
+                        np_preds = y_pred.argmax(dim=1).numpy()
 
-                print("\nPreds:",
-                      "\n0: ", (np_preds == 0).sum(),
-                      ", 1: ", (np_preds == 1).sum(),
-                      ", 2: ", (np_preds == 2).sum())
-                print("True:",
-                      "\n0: ", (y_true.long() == 0).sum().item(),
-                      "1: ", (y_true.long() == 1).sum().item(),
-                      "2: ", (y_true.long() == 2).sum().item())
+                    print("\nPreds:",
+                          "\n0: ", (np_preds == 0).sum(),
+                          ", 1: ", (np_preds == 1).sum(),
+                          ", 2: ", (np_preds == 2).sum())
+                    print("True:",
+                          "\n0: ", (y_true.long() == 0).sum().item(),
+                          "1: ", (y_true.long() == 1).sum().item(),
+                          "2: ", (y_true.long() == 2).sum().item())
 
-                if self.log:
-                    log_data = {
-                        'name': self.model_name, 'loss': loss.item(), 'accuracy': acc[-1], 'f1': f1[-1],
-                        'precision': prec[-1], 'recall': rec[-1], 'profit': profit[-1], 'epoch': self.current_epoch,
-                        'iteration': i, 'phase': self.phase
-                    }
-                    self.log_metrics(log_data)
+                    if self.log:
+                        log_data = {
+                            'name': self.model_name, 'loss': loss.item(), 'accuracy': acc[-1], 'f1': f1[-1],
+                            'precision': prec[-1], 'recall': rec[-1], 'profit': profit[-1], 'epoch': self.current_epoch,
+                            'iteration': i, 'phase': self.phase
+                        }
+                        self.log_metrics(log_data)
+        except FileNotFoundError:
+            filename = self.model_file.stem + '_backup.out'
+            self.save_checkpoint(self.model, (MODEL_SAVE_DIR / filename))
 
         return y_pred, mean_loss, acc
 
@@ -257,6 +261,11 @@ class ModelTrainer:
     def log_metrics(self, data):
         q = """INSERT INTO model_logs (name, loss, accuracy, f1, precision, recall, profit, epoch, iteration, phase)
         values (:name, :loss, :accuracy, :f1, :precision, :recall, :profit, :epoch, :iteration, :phase)"""
+        self.engine.execute(text(q), **data)
+
+    def log_error(self, data):
+        q = """INSERT INTO error_log (name, epoch, error, iteration, phase)
+        values (:name, :epoch, :error, :iteration, :phase)"""
         self.engine.execute(text(q), **data)
 
     def get_accuracy(self, true, predictions):
