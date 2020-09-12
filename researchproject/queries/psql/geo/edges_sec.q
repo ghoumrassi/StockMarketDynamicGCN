@@ -9,5 +9,6 @@ ON
 	sec_jointownership."ticker_y" = top2."ticker"
 
 WHERE "jointOwnership" != 0
-AND "relStart" <= :date
+AND "relStart" < :date
 AND "relEnd" > :prevdate
+AND ticker_x < ticker_y

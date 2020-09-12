@@ -16,7 +16,7 @@ from src.data.utils import create_connection_psql
 class CompanyGraphDatasetGeo(Dataset):
     # data is loaded from 1/1/2009 to present
     def __init__(self, root, features=None, device='cpu', start_date='01/01/2010', end_date='31/12/2100',
-                 periods=1, sequence_length=30, rthreshold=0.01, persistence=300, test=False, simplify=True,
+                 periods=1, sequence_length=30, rthreshold=0.01, persistence=300, test=False,
                  edgetypes=(0,), conv_first=True):
         if features is None:
             features = ('adjVolume', '5-day', '10-day', '20-day', '30-day')
@@ -42,7 +42,6 @@ class CompanyGraphDatasetGeo(Dataset):
         self.rthreshold = rthreshold
         self.persistence = persistence
         self.test = test
-        self.simplify = simplify
         self.edgetypes = edgetypes
         self.conv_first = conv_first
         start_date = dt.datetime.strptime(start_date, '%d/%m/%Y').timestamp()
@@ -243,9 +242,8 @@ class CompanyGraphDatasetGeo(Dataset):
 
         E, W, i, prev_edges = self.make_edges(E, W, i, prev_edges, results_1, position=0)
         E, W, i, prev_edges = self.make_edges(E, W, i, prev_edges, results_2, position=1)
-        if not self.simplify:
-            E, W, i, prev_edges = self.make_edges(E, W, i, prev_edges, results_3, position=2)
-            # E, W, i, prev_edges = self.make_edges(E, W, i, prev_edges, results_4, position=3)
+        E, W, i, prev_edges = self.make_edges(E, W, i, prev_edges, results_3, position=2)
+        # E, W, i, prev_edges = self.make_edges(E, W, i, prev_edges, results_4, position=3)
 
         E = E[:, :i]
         E = torch.cat((E, E.flip(dims=(0,))), dim=1)
@@ -262,7 +260,7 @@ class CompanyGraphDatasetGeo(Dataset):
             except KeyError:
                 continue
             new_edges = torch.tensor([[ai, bi]], device=self.device)
-            new_weights = torch.tensor([0, 0, 0], device=self.device)
+            new_weights = torch.tensor([0, 0, 0], device=self.device, dtype=torch.float)
             new_weights[position] = weight
             if (ai, bi) in prev_edges:
                 idx = prev_edges[(ai, bi)]
@@ -277,7 +275,7 @@ class CompanyGraphDatasetGeo(Dataset):
 
 if __name__ == "__main__":
     device = "cuda:0" if torch.cuda.is_available() else "cpu"
-    ds = CompanyGraphDatasetGeo(root=GEO_DATA, periods=3, device=device, simplify=True, start_date='01/01/2010',
+    ds = CompanyGraphDatasetGeo(root=GEO_DATA, periods=1, device=device, start_date='01/01/2010',
                                 conv_first=False)
     for i in range(5):
         print(ds[i])

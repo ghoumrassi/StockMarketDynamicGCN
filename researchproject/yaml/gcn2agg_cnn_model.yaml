@@ -1,0 +1,56 @@
+# Model type
+model: dgcn2_agg
+conv_first: false
+
+# Model options
+node_feat_dim: 6
+
+temporal_layer: cnn
+temporal_in_dim: 6
+num_filters: 43
+filter_sizes:
+  - 3
+  - 4
+  - 5
+temporal_out_dim: 129
+
+layer_1_dim: 129
+layer_2_dim: 129
+
+clf_in_dim: 129
+fc_1_dim: 64
+fc_2_dim: 32
+out_dim: 3
+
+dropout: 0.5
+
+# training args
+optimizer: sgd
+optim_args:
+  lr: 0.001
+  momentum: 0.9
+skipfeats: false
+epochs: 10
+returns_threshold: 0.008
+batchsize: 20
+edgetypes:
+  - 0
+  - 1
+  - 2
+
+# dataset args
+dataset: main
+seq_length: 50
+predict_periods: 3
+features:
+  - adjVolume
+  - 5-day
+  - 10-day
+  - 20-day
+  - 30-day
+
+# misc
+timeout: 10000
+size: small
+plot: false
+file: dgcn2_cnn.out

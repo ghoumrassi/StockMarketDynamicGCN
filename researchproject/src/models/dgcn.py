@@ -54,7 +54,6 @@ class DGCN2(nn.Module):
 
     def forward(self, data):
         x = data.x
-        # x = normalize(data.x)
         edge_attr = data.edge_attr.abs().squeeze()
 
         out = self.temporal(x, data)
@@ -88,7 +87,7 @@ class DGCNAgg(nn.Module):
         self.dropout = nn.Dropout(args.dropout)
 
     def forward(self, data):
-        x = normalize(data.x)
+        x = data.x
 
         batch_size = data.batch.max() + 1
         seq_len = data.seq.max() + 1
@@ -112,7 +111,38 @@ class DGCNAgg(nn.Module):
         out = self.clf(out)
         return out
 
-def normalize(x):
-    means = x.mean(dim=0, keepdim=True)
-    stds = x.std(dim=0, keepdim=True)
-    return (x - means) / stds
+
+class DGCN2Agg(nn.Module):
+    def __init__(self, args, device):
+        super().__init__()
+        self.args = args
+        self.device = device
+        self.temporal = TemporalLayer(args, device=device, reshape=False)
+
+        self.conv1, self.conv2 = [], []
+        for _ in args.edgetypes:
+            self.conv1.append(GCNConv(args.temporal_out_dim, args.layer_1_dim).to(device))
+            self.conv2.append(GCNConv(args.layer_1_dim, args.layer_2_dim).to(device))
+        args.clf_in_dim *= len(args.edgetypes)
+        self.clf = ClassifierLayer(args)
+
+        self.dropout = nn.Dropout(args.dropout)
+
+    def forward(self, data):
+        x = data.x
+        t_out = self.temporal(x, data)
+
+        out_list = []
+        for i in self.args.edgetypes:
+            edge_attr = data.edge_attr[:, i]
+            out = self.conv1[i](t_out, data.edge_index, edge_weight=edge_attr)
+            out = F.relu(out)
+            out = self.dropout(out)
+            out = self.conv2[i](out, data.edge_index, edge_weight=edge_attr)
+            out_list.append(out)
+        out = torch.cat(out_list, dim=1)
+        out = F.relu(out)
+        out = self.dropout(out)
+        out = self.clf(out)
+
+        return out

@@ -42,6 +42,8 @@ class ModelTrainer:
             self.model = DGCNAgg(args, device=self.device)
         elif args.model == 'dgcn2':
             self.model = DGCN2(args, device=self.device)
+        elif args.model == 'dgcn2_agg':
+            self.model = DGCN2Agg(args, device=self.device)
         else:
             raise NotImplementedError("The chosen model doesn't exist.")
 
@@ -49,7 +51,7 @@ class ModelTrainer:
             self.model_file = MODEL_SAVE_DIR / args.save_model
         else:
             self.model_file = MODEL_SAVE_DIR / args.file
-        
+
         if args.optimizer == "sgd":
             self.optimizer = optim.SGD(self.model.parameters(), **args.optim_args)
         elif args.optimizer == "adam":
