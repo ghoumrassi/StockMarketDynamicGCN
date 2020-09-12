@@ -238,7 +238,7 @@ class ModelTrainer:
                             'iteration': i, 'phase': self.phase
                         }
                         self.log_metrics(log_data)
-        except FileNotFoundError:
+        except FileNotFoundError or RuntimeError:
             filename = self.model_file.stem + '_backup.out'
             self.save_checkpoint(self.model, (MODEL_SAVE_DIR / filename))
 
