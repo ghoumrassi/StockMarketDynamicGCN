@@ -41,7 +41,7 @@ edgetypes:
 # dataset args
 dataset: main
 seq_length: 50
-predict_periods: 3
+predict_periods: 1
 features:
   - adjVolume
   - 5-day

@@ -130,11 +130,13 @@ class ModelTrainer:
             _, train_loss, train_acc = self.training_loop(self.train_loader, training=True)
             self.phase = 'validation'
             _, val_loss, val_acc = self.training_loop(self.val_loader)
-            if self.args.plot:
-                self.args.plot({'Train': train_loss, 'Validation': val_loss})
             print(f"Training loss: {train_loss}")
             print(f"Validation loss: {val_loss}")
+            if val_loss > self.best_val_loss:
+                self.best_val_loss = val_loss
+                self.save_checkpoint(self.model, self.model_file)
         self.phase = 'testing'
+        self.load_checkpoint(self.model, self.model_file)
         _, test_loss, test_acc = self.training_loop(self.test_loader)
 
     def load_data(self, timeout=30):
@@ -230,10 +232,7 @@ class ModelTrainer:
                     }
                     self.log_metrics(log_data)
 
-            if training:
-                self.save_checkpoint(self.model, self.model_file)
-
-        return y_pred, mean_loss_hist, acc
+        return y_pred, mean_loss, acc
 
     def plot(self, series_dict, figure_aspect=(8,8)):
         fig, ax = plt.subplots(len(series_dict), figsize=figure_aspect)

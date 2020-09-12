@@ -1,6 +1,8 @@
 from torch_geometric.data import Dataset, Data, Batch, DataLoader
 import torch
 from pathlib import Path
+import numpy as np
+import random
 
 
 class TestDataset(Dataset):
@@ -10,6 +12,7 @@ class TestDataset(Dataset):
     def process(self):
         data_dir = Path(self.processed_dir)
         data_list = []
+
         for date in range(5):
 
             X = torch.tensor([[0,  1,  2,  3],
@@ -45,9 +48,21 @@ class TestDataset(Dataset):
         return data
 
 
+def make_X_array():
+    X = np.random.randn(10000, 4)
+    flag = np.random.rand(10000) > 0.9
+
+    for i in range(X.shape[1] - 1):
+        X[:, i][flag] += 10
+    return X
+
+
+
 if __name__ == '__main__':
-    ds = TestDataset(root='E:/test')
-    dl = DataLoader(ds, batch_size=2)
-    for d in dl:
-        print(d.x)
-        d.x.reshape(2, 3, -1, 4)
+    # ds = TestDataset(root='E:/test')
+    # dl = DataLoader(ds, batch_size=2)
+    # for d in dl:
+    #     print(d.x)
+    #     d.x.reshape(2, 3, -1, 4)
+
+    make_X_array()
