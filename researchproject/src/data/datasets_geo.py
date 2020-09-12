@@ -216,30 +216,28 @@ class CompanyGraphDatasetGeo(Dataset):
             rs = self.engine.execute(text(f.read()), prevdate=int(prev_date), date=int(date))
         results_2 = rs.fetchall()
 
-        if not self.simplify:
-            # Correlations
-            with open((self.query_dir / 'edges_corr.q'), 'r') as f:
-                rs = self.engine.execute(text(f.read()), date=int(date))
-            results_3 = rs.fetchall()
-            # Reddit
-            with open((self.query_dir / 'edges_reddit.q'), 'r') as f:
-                rs = self.engine.execute(text(f.read()), prevdate=int(start_date), date=int(date))
-            results_4 = rs.fetchall()
+        # Reddit
+        with open((self.query_dir / 'edges_reddit.q'), 'r') as f:
+            rs = self.engine.execute(text(f.read()), prevdate=int(start_date), date=int(date))
+        results_3 = rs.fetchall()
 
-            # Wikidata not returning much data
-            # #Wikidata
-            # with open((self.query_dir / 'edges_wd.q'), 'r') as f:
-            #     rs = self.engine.execute(text(f.read()), prevdate=int(start_date), date=int(date))
-            # results_5 = rs.fetchall()
-        if self.simplify:
-            tot_len = len(results_1) + len(results_2)
-        else:
-            tot_len = len(results_1) + len(results_2) + len(results_3) + len(results_4)
+
+        # # Correlations
+        # with open((self.query_dir / 'edges_corr.q'), 'r') as f:
+        #     rs = self.engine.execute(text(f.read()), date=int(date))
+        # results_3 = rs.fetchall()
+        # Wikidata not returning much data
+        # #Wikidata
+        # with open((self.query_dir / 'edges_wd.q'), 'r') as f:
+        #     rs = self.engine.execute(text(f.read()), prevdate=int(start_date), date=int(date))
+        # results_5 = rs.fetchall()
+
+        tot_len = len(results_1) + len(results_2) + len(results_3) #+ len(results_4)
 
         if tot_len == 0:
             return torch.empty(2, device=self.device), torch.empty(2, device=self.device)
         E = torch.zeros((2, tot_len), dtype=torch.long, device=self.device)
-        W = torch.zeros((tot_len, 4), device=self.device)
+        W = torch.zeros((tot_len, 3), device=self.device)
         i = 0
         prev_edges = {}
 
@@ -247,7 +245,7 @@ class CompanyGraphDatasetGeo(Dataset):
         E, W, i, prev_edges = self.make_edges(E, W, i, prev_edges, results_2, position=1)
         if not self.simplify:
             E, W, i, prev_edges = self.make_edges(E, W, i, prev_edges, results_3, position=2)
-            E, W, i, prev_edges = self.make_edges(E, W, i, prev_edges, results_4, position=3)
+            # E, W, i, prev_edges = self.make_edges(E, W, i, prev_edges, results_4, position=3)
 
         E = E[:, :i]
         E = torch.cat((E, E.flip(dims=(0,))), dim=1)
@@ -264,7 +262,7 @@ class CompanyGraphDatasetGeo(Dataset):
             except KeyError:
                 continue
             new_edges = torch.tensor([[ai, bi]], device=self.device)
-            new_weights = torch.tensor([0, 0, 0, 0], device=self.device)
+            new_weights = torch.tensor([0, 0, 0], device=self.device)
             new_weights[position] = weight
             if (ai, bi) in prev_edges:
                 idx = prev_edges[(ai, bi)]

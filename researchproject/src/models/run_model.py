@@ -130,7 +130,7 @@ class ModelTrainer:
             print(f"Training loss: {train_loss}")
             print(f"Validation loss: {val_loss}")
         self.phase = 'testing'
-        test_predictions, test_loss, test_acc = self.training_loop(self.test_loader)
+        _, test_loss, test_acc = self.training_loop(self.test_loader)
 
     def load_data(self, timeout=30):
         if self.args.dataset == 'main':
