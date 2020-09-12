@@ -45,8 +45,11 @@ class ModelTrainer:
         else:
             raise NotImplementedError("The chosen model doesn't exist.")
 
-        self.model_file = MODEL_SAVE_DIR / args.file
-
+        if args.save_model:
+            self.model_file = MODEL_SAVE_DIR / args.save_model
+        else:
+            self.model_file = MODEL_SAVE_DIR / args.file
+        
         if args.optimizer == "sgd":
             self.optimizer = optim.SGD(self.model.parameters(), **args.optim_args)
         elif args.optimizer == "adam":
@@ -292,6 +295,7 @@ if __name__ == "__main__":
     parser.add_argument('yaml', default=None, help="Filename for model arguments.")
     parser.add_argument('--name', dest="name", default='model', help="Name of model in model logs.")
     parser.add_argument('--load', "-l", dest="load_model", default=None, help="Filename for saved model information.")
+    parser.add_argument('--save', "-s", dest="save_model", default=None, help="Filename for saving model information.")
     parser.add_argument('--no-log', dest="log", action='store_false', help="Disables logging of training metrics")
     parser.add_argument('--test', dest="test", action='store_true', help="Testing mode: dataset will not be processed")
 
@@ -300,6 +304,7 @@ if __name__ == "__main__":
     args = Args((MODEL_ARGS / arg.yaml))
     args.load_model = arg.load_model
     args.name = arg.name
+    args.save_model = arg.save_model
 
     trainer = ModelTrainer(args, arg.log, arg.test)
 
