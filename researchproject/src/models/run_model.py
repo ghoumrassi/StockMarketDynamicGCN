@@ -158,7 +158,7 @@ class ModelTrainer:
             )
             self.train_loader = GeoDataLoader(self.train_data, batch_size=self.batch_size, shuffle=False)
             self.val_loader = GeoDataLoader(self.val_data, batch_size=self.batch_size, shuffle=False)
-            self.test_loader = GeoDataLoader(self.test_data, batch_size=self.batch_size, shuffle=False)
+            self.test_loader = GeoDataLoader(self.test_data, batch_size=1, shuffle=False)
         elif self.args.dataset == 'elliptic':
             self.train_data = EllipticTemporalDataset(device=self.device)
             self.val_data = EllipticTemporalDataset(device=self.device)
