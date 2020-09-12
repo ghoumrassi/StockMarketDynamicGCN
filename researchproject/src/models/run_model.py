@@ -75,6 +75,7 @@ class ModelTrainer:
         if self.log:
             self.model_name = args.name
         self.engine = create_connection_psql(PG_CREDENTIALS)
+        self.best_val_loss = None
         self.timestamp = time.time()
         self.sequence_length = args.seq_length
         self.predict_periods = args.predict_periods
@@ -132,9 +133,14 @@ class ModelTrainer:
             _, val_loss, val_acc = self.training_loop(self.val_loader)
             print(f"Training loss: {train_loss}")
             print(f"Validation loss: {val_loss}")
-            if val_loss > self.best_val_loss:
+            if not self.best_val_loss:
                 self.best_val_loss = val_loss
                 self.save_checkpoint(self.model, self.model_file)
+            elif val_loss < self.best_val_loss:
+                self.best_val_loss = val_loss
+                self.save_checkpoint(self.model, self.model_file)
+            else:
+                pass
         self.phase = 'testing'
         self.load_checkpoint(self.model, self.model_file)
         _, test_loss, test_acc = self.training_loop(self.test_loader)
